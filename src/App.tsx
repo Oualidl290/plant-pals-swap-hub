@@ -22,7 +22,18 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
+            
+            {/* Auth route - not accessible when logged in */}
+            <Route 
+              path="/auth" 
+              element={
+                <ProtectedRoute requireAuth={false}>
+                  <Auth />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Protected routes - require authentication */}
             <Route 
               path="/onboarding" 
               element={
@@ -31,6 +42,7 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
