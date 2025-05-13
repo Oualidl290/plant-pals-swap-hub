@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,17 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				plant: {
+					'dark-green': '#4A6F41',
+					'sage': '#8FB580',
+					'mint': '#C2E1BD',
+					'cream': '#F7F7F2',
+					'gold': '#E9B44C',
+					'brown': '#9B7E46',
+					'light-brown': '#D4C8B0',
+					'gray': '#757575',
+					'dark': '#333333',
 				}
 			},
 			borderRadius: {
@@ -84,12 +96,38 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					'0%': {
+						opacity: '0',
+						transform: 'translateY(10px)'
+					},
+					'100%': {
+						opacity: '1',
+						transform: 'translateY(0)'
+					}
+				},
+				'grow': {
+					'0%': {
+						transform: 'scale(0.95)',
+						opacity: '0'
+					},
+					'100%': {
+						transform: 'scale(1)',
+						opacity: '1'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
-			}
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.5s ease-out',
+				'grow': 'grow 0.4s ease-out',
+			},
+			fontFamily: {
+				'serif': ['Playfair Display', 'serif'],
+				'sans': ['Nunito', 'sans-serif'],
+			},
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
