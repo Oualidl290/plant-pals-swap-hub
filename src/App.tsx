@@ -10,6 +10,11 @@ import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import Dashboard from "./pages/Dashboard";
+import Plants from "./pages/Plants";
+import PlantDetail from "./pages/PlantDetail";
+import UserProfile from "./pages/UserProfile";
+import Messages from "./pages/Messages";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +44,34 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Onboarding />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route path="/plants" element={<Plants />} />
+            <Route path="/plants/:id" element={<PlantDetail />} />
+            
+            <Route 
+              path="/profile/:username" 
+              element={
+                <UserProfile />
+              } 
+            />
+            
+            <Route 
+              path="/messages" 
+              element={
+                <ProtectedRoute>
+                  <Messages />
                 </ProtectedRoute>
               } 
             />
