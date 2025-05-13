@@ -10,7 +10,8 @@ import {
   MoreHorizontal,
   Image,
   Smile,
-  Paperclip
+  Paperclip,
+  MessageSquare
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { ScrollArea } from "@/components/ui/scroll-area";

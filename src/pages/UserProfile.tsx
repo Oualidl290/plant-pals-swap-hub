@@ -30,7 +30,7 @@ const userData = {
   memberSince: "Jan 2023",
   completedSwaps: 15,
   rating: 4.8,
-  reviews: 12,
+  reviewCount: 12, // Changed from reviews to reviewCount to avoid duplicate
   social: {
     instagram: "plantlover_sarah",
     twitter: "sarahplants",
@@ -155,8 +155,7 @@ export default function UserProfile() {
                     <Button 
                       variant="outline" 
                       className="border-plant-mint/50"
-                      as={Link}
-                      to="/settings/profile"
+                      onClick={() => window.location.href = "/settings/profile"}
                     >
                       <PencilLine className="mr-2 h-4 w-4" />
                       Edit Profile
@@ -245,8 +244,7 @@ export default function UserProfile() {
                   <Button 
                     variant="link" 
                     className="text-plant-dark-green mt-2"
-                    as={Link}
-                    to="/add-plant"
+                    onClick={() => window.location.href = "/add-plant"}
                   >
                     Add your first plant
                   </Button>
