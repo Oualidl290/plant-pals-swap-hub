@@ -1,106 +1,134 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
+ 
 @layer base {
   :root {
-    --background: 60 30% 96%;
-    --foreground: 20 10% 15%;
+    --background: 0 0% 100%;
+    --foreground: 222.2 47.4% 11.2%;
 
-    --card: 60 30% 98%;
-    --card-foreground: 20 10% 15%;
-
-    --popover: 60 30% 98%;
-    --popover-foreground: 20 10% 15%;
-
-    --primary: 110 28% 34%;
-    --primary-foreground: 60 30% 98%;
-
-    --secondary: 100 24% 61%;
-    --secondary-foreground: 60 30% 98%;
-
-    --muted: 60 15% 92%;
-    --muted-foreground: 20 10% 40%;
-
-    --accent: 40 80% 60%;
-    --accent-foreground: 20 10% 15%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 60 30% 98%;
-
-    --border: 110 15% 85%;
-    --input: 110 15% 85%;
-    --ring: 110 28% 34%;
-
-    --radius: 1rem;
+    --plant-dark-green: 138 43% 34%;
+    --plant-mint: 138 43% 94%;
+    --plant-dark: 25 20% 18%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+ 
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+ 
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+ 
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --ring: 215 20.2% 65.1%;
+ 
+    --radius: 0.5rem;
   }
-
+ 
   .dark {
-    --background: 20 10% 10%;
-    --foreground: 60 15% 90%;
-
-    --card: 20 10% 12%;
-    --card-foreground: 60 15% 90%;
-
-    --popover: 20 10% 12%;
-    --popover-foreground: 60 15% 90%;
-
-    --primary: 110 25% 45%;
-    --primary-foreground: 60 15% 90%;
-
-    --secondary: 100 20% 40%;
-    --secondary-foreground: 60 15% 90%;
-
-    --muted: 20 10% 20%;
-    --muted-foreground: 60 15% 70%;
-
-    --accent: 40 70% 50%;
-    --accent-foreground: 60 15% 90%;
-
-    --destructive: 0 62.8% 40.6%;
-    --destructive-foreground: 60 15% 90%;
-
-    --border: 20 10% 30%;
-    --input: 20 10% 30%;
-    --ring: 110 25% 45%;
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+ 
+    --muted: 223 47% 11%;
+    --muted-foreground: 215.4 16.3% 56.9%;
+ 
+    --popover: 224 71% 4%;
+    --popover-foreground: 215 20.2% 65.1%;
+ 
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
+ 
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+ 
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 1.2%;
+ 
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+ 
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --ring: 216 34% 17%;
+ 
+    --radius: 0.5rem;
   }
 }
-
+ 
 @layer base {
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground font-sans;
-  }
-
-  h1, h2, h3, h4, h5 {
-    @apply font-serif;
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-@layer components {
-  .plant-gradient {
-    @apply bg-gradient-to-b from-plant-mint/40 to-plant-cream;
+@keyframes garden-grow {
+  0% {
+    transform: translateX(-100%);
   }
-  
-  .btn-primary {
-    @apply bg-plant-dark-green text-white hover:bg-plant-dark-green/90 rounded-full px-6 py-2 transition-all duration-300 font-medium;
+  50% {
+    transform: translateX(0);
   }
-  
-  .btn-secondary {
-    @apply bg-transparent border border-plant-dark-green text-plant-dark-green hover:bg-plant-dark-green/10 rounded-full px-6 py-2 transition-all duration-300 font-medium;
+  100% {
+    transform: translateX(100%);
   }
+}
 
-  .card-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
-  }
-  
-  .leaf-bullet li {
-    @apply relative pl-6 before:content-[''] before:absolute before:left-0 before:top-[0.6rem] before:w-3 before:h-3 before:bg-plant-sage before:rounded-full;
-  }
+.text-plant-dark-green {
+  color: hsl(var(--plant-dark-green));
+}
+
+.bg-plant-dark-green {
+  background-color: hsl(var(--plant-dark-green));
+}
+
+.hover\:bg-plant-dark-green:hover {
+  background-color: hsl(var(--plant-dark-green));
+}
+
+.hover\:bg-plant-dark-green\/90:hover {
+  background-color: hsl(var(--plant-dark-green) / 0.9);
+}
+
+.border-plant-dark-green {
+  border-color: hsl(var(--plant-dark-green));
+}
+
+.bg-plant-mint {
+  background-color: hsl(var(--plant-mint));
+}
+
+.bg-plant-mint\/30 {
+  background-color: hsl(var(--plant-mint) / 0.3);
+}
+
+.border-plant-mint\/30 {
+  border-color: hsl(var(--plant-mint) / 0.3);
+}
+
+.text-plant-dark {
+  color: hsl(var(--plant-dark));
 }
