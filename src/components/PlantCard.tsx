@@ -9,7 +9,7 @@ interface Owner {
 }
 
 interface Plant {
-  id: number;
+  id: string | number;  // Updated to accept both string and number
   name: string;
   species: string;
   image: string;
