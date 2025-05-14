@@ -4,7 +4,7 @@ import { Navbar } from "@/components/Navbar";
 import { PlantCard } from "@/components/PlantCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, SlidersHorizontal, MapPin } from "lucide-react";
+import { Search, SlidersHorizontal, MapPin, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,120 +12,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// Sample data - will be replaced with actual data from Supabase
-const plants = [
-  {
-    id: 1,
-    name: "Monstera Deliciosa",
-    species: "Monstera",
-    image: "https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop",
-    distance: "0.5 miles away",
-    owner: {
-      name: "Sarah",
-      avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=3540&auto=format&fit=crop"
-    },
-    sunlight: "Indirect",
-    wateringFrequency: "Weekly",
-    difficulty: "Easy"
-  },
-  {
-    id: 2,
-    name: "Snake Plant",
-    species: "Sansevieria",
-    image: "https://images.unsplash.com/photo-1593482892290-f54927ae2be2?q=80&w=3540&auto=format&fit=crop",
-    distance: "1.2 miles away",
-    owner: {
-      name: "Michael",
-      avatar: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?q=80&w=3540&auto=format&fit=crop"
-    },
-    sunlight: "Low to bright",
-    wateringFrequency: "Every 2-3 weeks",
-    difficulty: "Very Easy"
-  },
-  {
-    id: 3,
-    name: "Fiddle Leaf Fig",
-    species: "Ficus lyrata",
-    image: "https://images.unsplash.com/photo-1597055181449-b9d2955f595c?q=80&w=3540&auto=format&fit=crop",
-    distance: "3 miles away",
-    owner: {
-      name: "Emma",
-      avatar: "https://images.unsplash.com/photo-1664575602554-2087b04935a5?q=80&w=3540&auto=format&fit=crop"
-    },
-    sunlight: "Bright indirect",
-    wateringFrequency: "Weekly",
-    difficulty: "Moderate"
-  },
-  {
-    id: 4,
-    name: "Aloe Vera",
-    species: "Aloe barbadensis",
-    image: "https://images.unsplash.com/photo-1509423350716-97f9360b4e09?q=80&w=3540&auto=format&fit=crop",
-    distance: "0.8 miles away",
-    owner: {
-      name: "David",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3540&auto=format&fit=crop"
-    },
-    sunlight: "Direct",
-    wateringFrequency: "Bi-weekly",
-    difficulty: "Easy"
-  },
-  {
-    id: 5,
-    name: "Peace Lily",
-    species: "Spathiphyllum",
-    image: "https://images.unsplash.com/photo-1602923668104-8f9e03e4f371?q=80&w=3540&auto=format&fit=crop",
-    distance: "1.5 miles away",
-    owner: {
-      name: "Lisa",
-      avatar: "https://images.unsplash.com/photo-1499887142886-791eca5918cd?q=80&w=3540&auto=format&fit=crop"
-    },
-    sunlight: "Low to medium",
-    wateringFrequency: "Weekly",
-    difficulty: "Easy"
-  },
-  {
-    id: 6,
-    name: "Pothos",
-    species: "Epipremnum aureum",
-    image: "https://images.unsplash.com/photo-1622550105129-02c04a1d04b4?q=80&w=3540&auto=format&fit=crop",
-    distance: "2.1 miles away",
-    owner: {
-      name: "Carlos",
-      avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=3540&auto=format&fit=crop"
-    },
-    sunlight: "Low to bright",
-    wateringFrequency: "Weekly",
-    difficulty: "Very Easy"
-  }
-];
+import { usePlants } from "@/hooks/usePlants";
+import { Link } from "react-router-dom";
 
 export default function Plants() {
-  const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [plantType, setPlantType] = useState("all");
-  const [sortBy, setSortBy] = useState("distance");
   
-  // Filter plants based on search and filters
-  const filteredPlants = plants.filter(plant => {
-    const matchesSearch = plant.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         plant.species.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesType = plantType === "all" || plantType === plant.difficulty.toLowerCase();
-    
-    return matchesSearch && matchesType;
-  });
+  const { 
+    plants, 
+    isLoading, 
+    error, 
+    searchTerm, 
+    setSearchTerm,
+    filterOptions,
+    setFilterOptions,
+    sortBy,
+    setSortBy
+  } = usePlants();
   
-  // Sort plants
-  const sortedPlants = [...filteredPlants].sort((a, b) => {
-    if (sortBy === "distance") {
-      return parseFloat(a.distance) - parseFloat(b.distance);
-    } else if (sortBy === "name") {
-      return a.name.localeCompare(b.name);
-    }
-    return 0;
-  });
+  if (error) {
+    console.error("Error loading plants:", error);
+  }
 
   return (
     <div className="min-h-screen bg-plant-cream/50">
@@ -167,15 +74,18 @@ export default function Plants() {
             
             {/* Filters panel */}
             {showFilters && (
-              <div className="p-4 bg-white rounded-lg border border-plant-mint/30 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-white rounded-lg border border-plant-mint/30 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-plant-dark mb-2 block">Plant Type</label>
-                  <Select value={plantType} onValueChange={setPlantType}>
+                  <label className="text-sm font-medium text-plant-dark mb-2 block">Care Difficulty</label>
+                  <Select 
+                    value={filterOptions.difficulty} 
+                    onValueChange={(value) => setFilterOptions({...filterOptions, difficulty: value})}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="All types" />
+                      <SelectValue placeholder="All difficulties" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All types</SelectItem>
+                      <SelectItem value="all">All difficulties</SelectItem>
                       <SelectItem value="easy">Easy care</SelectItem>
                       <SelectItem value="moderate">Moderate care</SelectItem>
                       <SelectItem value="difficult">Advanced care</SelectItem>
@@ -184,13 +94,36 @@ export default function Plants() {
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium text-plant-dark mb-2 block">Sort By</label>
-                  <Select value={sortBy} onValueChange={setSortBy}>
+                  <label className="text-sm font-medium text-plant-dark mb-2 block">Sunlight Needs</label>
+                  <Select 
+                    value={filterOptions.sunlight} 
+                    onValueChange={(value) => setFilterOptions({...filterOptions, sunlight: value})}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Distance" />
+                      <SelectValue placeholder="All sunlight types" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="distance">Nearest first</SelectItem>
+                      <SelectItem value="all">All sunlight types</SelectItem>
+                      <SelectItem value="low">Low light</SelectItem>
+                      <SelectItem value="indirect">Indirect light</SelectItem>
+                      <SelectItem value="bright">Bright light</SelectItem>
+                      <SelectItem value="direct">Direct sunlight</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-plant-dark mb-2 block">Sort By</label>
+                  <Select 
+                    value={sortBy} 
+                    onValueChange={setSortBy}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest first</SelectItem>
+                      <SelectItem value="oldest">Oldest first</SelectItem>
                       <SelectItem value="name">Alphabetical</SelectItem>
                     </SelectContent>
                   </Select>
@@ -201,8 +134,13 @@ export default function Plants() {
                     className="bg-plant-dark-green hover:bg-plant-dark-green/90 w-full"
                     onClick={() => {
                       setSearchTerm("");
-                      setPlantType("all");
-                      setSortBy("distance");
+                      setFilterOptions({
+                        difficulty: 'all',
+                        sunlight: 'all',
+                        size: 'all',
+                        onlyAvailable: false
+                      });
+                      setSortBy("newest");
                     }}
                   >
                     Reset Filters
@@ -214,11 +152,32 @@ export default function Plants() {
           
           {/* Plants grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedPlants.map((plant) => (
-              <PlantCard key={plant.id} plant={plant} />
-            ))}
-            
-            {sortedPlants.length === 0 && (
+            {isLoading ? (
+              <div className="col-span-full flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green" />
+              </div>
+            ) : plants && plants.length > 0 ? (
+              plants.map((plant) => (
+                <Link to={`/plants/${plant.id}`} key={plant.id}>
+                  <PlantCard 
+                    plant={{
+                      id: plant.id,
+                      name: plant.name,
+                      species: plant.species || '',
+                      image: plant.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop',
+                      distance: plant.profiles.location || 'Unknown location',
+                      owner: {
+                        name: plant.profiles.username || 'Unknown user',
+                        avatar: plant.profiles.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3540&auto=format&fit=crop'
+                      },
+                      sunlight: plant.sunlight || 'Not specified',
+                      wateringFrequency: plant.watering_frequency || 'Not specified',
+                      difficulty: plant.difficulty || 'Moderate'
+                    }} 
+                  />
+                </Link>
+              ))
+            ) : (
               <div className="col-span-full text-center py-12">
                 <p className="text-plant-gray text-lg">No plants found matching your criteria</p>
                 <Button 
@@ -226,7 +185,12 @@ export default function Plants() {
                   className="text-plant-dark-green mt-2"
                   onClick={() => {
                     setSearchTerm("");
-                    setPlantType("all");
+                    setFilterOptions({
+                      difficulty: 'all',
+                      sunlight: 'all',
+                      size: 'all',
+                      onlyAvailable: false
+                    });
                   }}
                 >
                   Clear filters

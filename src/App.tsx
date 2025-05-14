@@ -15,6 +15,7 @@ import Plants from "./pages/Plants";
 import PlantDetail from "./pages/PlantDetail";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
+import AddPlant from "./pages/AddPlant";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,24 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/add-plant" 
+              element={
+                <ProtectedRoute>
+                  <AddPlant />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/edit-plant/:id" 
+              element={
+                <ProtectedRoute>
+                  <AddPlant />
                 </ProtectedRoute>
               } 
             />

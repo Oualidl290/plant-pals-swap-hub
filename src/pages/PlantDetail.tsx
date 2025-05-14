@@ -1,332 +1,415 @@
 
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import { 
-  ArrowLeft, 
-  MessageSquare, 
-  RefreshCw, 
-  Heart, 
-  Share2, 
-  Droplet, 
-  Sun, 
-  Ruler,
-  Info
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserAvatar } from "@/components/UserAvatar";
-import { Card, CardContent } from "@/components/ui/card";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useToast } from "@/hooks/use-toast";
-
-// Sample data - will be replaced with actual data from Supabase
-const plantData = {
-  id: 1,
-  name: "Monstera Deliciosa",
-  species: "Monstera Deliciosa",
-  description: "A beautiful, healthy Monstera with fenestrated leaves. Great for bringing a tropical feel to your space. I've had this plant for about 2 years and it's been thriving. Looking to swap for something different to add variety to my collection.",
-  image: "https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop",
-  gallery: [
-    "https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1682695794816-7b9da18ed470?q=80&w=3540&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1682695794816-7b9da18ed470?q=80&w=3540&auto=format&fit=crop"
-  ],
-  owner: {
-    id: "abc123",
-    name: "Sarah Johnson",
-    location: "Portland, OR",
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=3540&auto=format&fit=crop",
-    joined: "2023-01-15",
-    rating: 4.8,
-    reviews: 12
-  },
-  care: {
-    difficulty: "Moderate",
-    sunlight: "Bright indirect light",
-    watering: "Once a week, allow to dry between waterings",
-    size: "Medium, 2-3 feet tall"
-  },
-  distance: "0.7 miles away",
-  posted: "2025-05-01",
-  swapPreferences: "Looking for: Pothos, Philodendron, or other trailing plants"
-};
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { usePlants } from "@/hooks/usePlants";
+import { useSwapRequests } from "@/hooks/useSwapRequests";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Loader2,
+  Heart,
+  MessageSquare,
+  RefreshCw,
+  Edit,
+  Trash2,
+  Share,
+  ArrowLeft,
+  MapPin,
+  Droplets,
+  Sun,
+  GanttChart,
+} from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { formatDistanceToNow } from "date-fns";
 
 export default function PlantDetail() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [selectedImage, setSelectedImage] = useState(plantData.gallery[0]);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { user } = useAuth();
+  const { toggleFavorite, deletePlant, isDeleting } = usePlants();
+  const { createSwapRequest, isCreating } = useSwapRequests();
   
-  const handleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    toast({
-      title: isFavorite ? "Removed from favorites" : "Added to favorites",
-      description: isFavorite ? "Plant removed from your saved items" : "Plant added to your saved items",
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapMessage, setSwapMessage] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Get the plant details
+  const { data: plant, isLoading, error } = useQuery({
+    queryKey: ['plant', id],
+    queryFn: async () => {
+      if (!id) return null;
+      
+      const { data, error } = await supabase
+        .from('plants')
+        .select(`
+          *,
+          owner:profiles!plants_owner_id_fkey(id, username, avatar_url, location, rating)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id
+  });
+
+  // Check if the user has favorited this plant
+  const { data: isFavorited } = useQuery({
+    queryKey: ['favorite', id, user?.id],
+    queryFn: async () => {
+      if (!id || !user) return false;
+      
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('id')
+        .eq('plant_id', id)
+        .eq('user_id', user.id)
+        .single();
+        
+      return !!data && !error;
+    },
+    enabled: !!id && !!user
+  });
+
+  // Check if the user has already sent a swap request
+  const { data: existingSwapRequest } = useQuery({
+    queryKey: ['swap-request-check', id, user?.id],
+    queryFn: async () => {
+      if (!id || !user) return null;
+      
+      const { data, error } = await supabase
+        .from('swap_requests')
+        .select('*')
+        .eq('plant_id', id)
+        .eq('requester_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (error) throw error;
+      return data.length > 0 ? data[0] : null;
+    },
+    enabled: !!id && !!user
+  });
+
+  // Handle swap request submission
+  const handleSwapRequest = () => {
+    if (!id) return;
+    
+    createSwapRequest({ plantId: id, message: swapMessage }, {
+      onSuccess: () => {
+        setShowSwapModal(false);
+        setSwapMessage("");
+      }
     });
   };
-  
-  const handleRequestSwap = () => {
-    toast({
-      title: "Swap request sent!",
-      description: "We've notified the plant owner. They'll respond shortly.",
+
+  // Handle plant deletion
+  const handleDeletePlant = () => {
+    if (!id) return;
+    
+    deletePlant(id, {
+      onSuccess: () => {
+        navigate('/dashboard');
+      }
     });
   };
-  
+
+  // Handle share
   const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast({
-      title: "Link copied!",
-      description: "Share this plant with your friends",
-    });
+    if (navigator.share) {
+      navigator.share({
+        title: plant?.name || "Plant Swap",
+        text: `Check out this ${plant?.name} on PlantPals`,
+        url: window.location.href
+      }).catch(err => {
+        console.error('Error sharing:', err);
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: "Link copied",
+        description: "Plant link copied to clipboard"
+      });
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-plant-cream/50">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !plant) {
+    return (
+      <div className="min-h-screen bg-plant-cream/50">
+        <Navbar />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <h2 className="text-2xl font-serif font-bold text-plant-dark-green mb-4">Plant Not Found</h2>
+          <p className="text-plant-gray mb-6">The plant you're looking for doesn't exist or has been removed.</p>
+          <Button asChild variant="default" className="bg-plant-dark-green hover:bg-plant-dark-green/90">
+            <Link to="/plants">Browse Plants</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const isOwner = user?.id === plant.owner_id;
 
   return (
     <div className="min-h-screen bg-plant-cream/50">
       <Navbar />
       
       <main className="container mx-auto px-4 py-6 md:py-10">
-        <div className="mb-6">
-          <Link to="/plants" className="text-plant-dark-green hover:underline flex items-center">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to plants
-          </Link>
-        </div>
+        <Button 
+          variant="ghost" 
+          className="mb-4 text-plant-gray"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Plant images and info - left side */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Main image */}
-            <div className="rounded-lg overflow-hidden border border-plant-mint/30 bg-white">
-              <AspectRatio ratio={4/3} className="bg-plant-mint/10">
-                <img 
-                  src={selectedImage} 
-                  alt={plantData.name} 
-                  className="object-cover w-full h-full"
-                />
-              </AspectRatio>
-            </div>
-            
-            {/* Thumbnail gallery */}
-            <div className="flex space-x-3 overflow-x-auto pb-2">
-              {plantData.gallery.map((img, index) => (
-                <button 
-                  key={index}
-                  onClick={() => setSelectedImage(img)}
-                  className={`rounded-lg overflow-hidden border ${
-                    selectedImage === img 
-                      ? "border-plant-dark-green" 
-                      : "border-plant-mint/30"
-                  } h-16 w-16 flex-shrink-0`}
-                >
-                  <img 
-                    src={img} 
-                    alt={`${plantData.name} view ${index + 1}`} 
-                    className="object-cover w-full h-full"
-                  />
-                </button>
-              ))}
-            </div>
-            
-            {/* Plant details */}
-            <div className="space-y-6">
-              <div>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h1 className="text-3xl font-serif font-bold text-plant-dark-green">{plantData.name}</h1>
-                    <p className="text-plant-gray italic">{plantData.species}</p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className={`rounded-full ${
-                        isFavorite 
-                          ? "bg-red-50 border-red-200 text-red-500" 
-                          : "border-plant-mint/30"
-                      }`}
-                      onClick={handleFavorite}
-                    >
-                      <Heart className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
-                      <span className="sr-only">Favorite</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="rounded-full border-plant-mint/30"
-                      onClick={handleShare}
-                    >
-                      <Share2 className="h-4 w-4" />
-                      <span className="sr-only">Share</span>
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2 mt-2">
-                  <Badge className="bg-plant-mint/20 text-plant-dark-green border-plant-mint hover:bg-plant-mint/30">
-                    {plantData.care.difficulty}
-                  </Badge>
-                  <span className="text-sm text-plant-gray">{plantData.distance}</span>
-                  <span className="text-sm text-plant-gray">• Posted {new Date(plantData.posted).toLocaleDateString()}</span>
-                </div>
-              </div>
-              
-              {/* Description */}
-              <div>
-                <h2 className="text-xl font-medium mb-2">About this plant</h2>
-                <p className="text-plant-dark">{plantData.description}</p>
-              </div>
-              
-              {/* Care info */}
-              <div>
-                <h2 className="text-xl font-medium mb-3">Care information</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Card className="bg-white border-plant-mint/30">
-                    <CardContent className="p-4 flex items-center">
-                      <Sun className="h-5 w-5 text-plant-gold mr-3" />
-                      <div>
-                        <p className="font-medium">Light</p>
-                        <p className="text-sm text-plant-gray">{plantData.care.sunlight}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-white border-plant-mint/30">
-                    <CardContent className="p-4 flex items-center">
-                      <Droplet className="h-5 w-5 text-plant-dark-green mr-3" />
-                      <div>
-                        <p className="font-medium">Water</p>
-                        <p className="text-sm text-plant-gray">{plantData.care.watering}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-white border-plant-mint/30">
-                    <CardContent className="p-4 flex items-center">
-                      <Ruler className="h-5 w-5 text-plant-brown mr-3" />
-                      <div>
-                        <p className="font-medium">Size</p>
-                        <p className="text-sm text-plant-gray">{plantData.care.size}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-white border-plant-mint/30">
-                    <CardContent className="p-4 flex items-center">
-                      <Info className="h-5 w-5 text-plant-sage mr-3" />
-                      <div>
-                        <p className="font-medium">Swap Preference</p>
-                        <p className="text-sm text-plant-gray">{plantData.swapPreferences}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Plant Image */}
+          <div className="rounded-lg overflow-hidden h-[400px] bg-white border border-plant-mint/30">
+            <img 
+              src={plant.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop'} 
+              alt={plant.name} 
+              className="w-full h-full object-cover"
+            />
           </div>
           
-          {/* Owner info and actions - right sidebar */}
+          {/* Plant Details */}
           <div className="space-y-6">
-            {/* Plant owner */}
-            <Card className="bg-white border-plant-mint/30">
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <UserAvatar 
-                    src={plantData.owner.avatar}
-                    fallback={plantData.owner.name}
-                    className="h-12 w-12"
-                  />
-                  <div>
-                    <h3 className="font-medium">{plantData.owner.name}</h3>
-                    <p className="text-sm text-plant-gray">{plantData.owner.location}</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <p className="text-sm text-plant-gray">Member since</p>
-                    <p className="font-medium">{new Date(plantData.owner.joined).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-plant-gray">Rating</p>
-                    <p className="font-medium flex items-center">
-                      {plantData.owner.rating}
-                      <span className="text-xs text-plant-gray ml-1">({plantData.owner.reviews})</span>
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex justify-between items-start">
+                <h1 className="text-3xl font-serif font-bold text-plant-dark-green">{plant.name}</h1>
+                <div className="flex gap-2">
+                  {user && !isOwner && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className={isFavorited ? "text-red-500" : "text-plant-gray"}
+                      onClick={() => toggleFavorite(plant.id)}
+                    >
+                      <Heart className={`h-5 w-5 ${isFavorited ? "fill-red-500" : ""}`} />
+                    </Button>
+                  )}
                   <Button 
-                    className="w-full bg-plant-dark-green hover:bg-plant-dark-green/90"
-                    onClick={handleRequestSwap}
+                    variant="ghost" 
+                    size="icon"
+                    className="text-plant-gray"
+                    onClick={handleShare}
                   >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Request Swap
+                    <Share className="h-5 w-5" />
                   </Button>
-                  <Button variant="outline" className="w-full border-plant-mint/50">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Message
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Safety tips */}
-            <Card className="bg-plant-mint/10 border-plant-mint/30">
-              <CardContent className="p-6">
-                <h3 className="font-medium mb-3">Safety Tips</h3>
-                <ul className="text-sm space-y-2 text-plant-dark">
-                  <li className="flex items-start">
-                    <span className="bg-plant-mint rounded-full h-1.5 w-1.5 mt-1.5 mr-2"></span>
-                    Meet in a public place for plant swaps
-                  </li>
-                  <li className="flex items-start">
-                    <span className="bg-plant-mint rounded-full h-1.5 w-1.5 mt-1.5 mr-2"></span>
-                    Check for pests before accepting plants
-                  </li>
-                  <li className="flex items-start">
-                    <span className="bg-plant-mint rounded-full h-1.5 w-1.5 mt-1.5 mr-2"></span>
-                    Use in-app messaging for communication
-                  </li>
-                  <li className="flex items-start">
-                    <span className="bg-plant-mint rounded-full h-1.5 w-1.5 mt-1.5 mr-2"></span>
-                    Report any concerns to PlantPals
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-            
-            {/* Similar plants teaser */}
-            <div>
-              <h3 className="font-medium mb-3">Similar Plants Nearby</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg overflow-hidden border border-plant-mint/30">
-                  <img 
-                    src="https://images.unsplash.com/photo-1682695794816-7b9da18ed470?q=80&w=3540&auto=format&fit=crop" 
-                    alt="Similar plant" 
-                    className="h-24 w-full object-cover"
-                  />
-                  <div className="p-2">
-                    <p className="font-medium text-sm truncate">Monstera Adansonii</p>
-                    <p className="text-xs text-plant-gray">0.9 miles away</p>
-                  </div>
-                </div>
-                <div className="rounded-lg overflow-hidden border border-plant-mint/30">
-                  <img 
-                    src="https://images.unsplash.com/photo-1620803366004-c95d0037b4e9?q=80&w=3542&auto=format&fit=crop" 
-                    alt="Similar plant" 
-                    className="h-24 w-full object-cover"
-                  />
-                  <div className="p-2">
-                    <p className="font-medium text-sm truncate">Philodendron Brasil</p>
-                    <p className="text-xs text-plant-gray">1.2 miles away</p>
-                  </div>
                 </div>
               </div>
+              
+              <div className="flex items-center gap-2">
+                <Badge variant={plant.available_for_swap ? "default" : "outline"} className="bg-plant-mint text-plant-dark-green">
+                  {plant.available_for_swap ? "Available for swap" : "Not available for swap"}
+                </Badge>
+                {plant.species && (
+                  <span className="text-sm text-plant-gray">{plant.species}</span>
+                )}
+              </div>
+              
+              {plant.description && (
+                <p className="text-plant-gray mt-2 text-sm">{plant.description}</p>
+              )}
+            </div>
+            
+            {/* Care details */}
+            <div className="grid grid-cols-3 gap-3 py-2 border-y border-plant-mint/20">
+              <div className="flex flex-col items-center p-3 text-center">
+                <Sun className="h-5 w-5 text-plant-sage mb-1" />
+                <span className="text-xs text-plant-gray">Sunlight</span>
+                <span className="text-sm font-medium mt-1">{plant.sunlight || "Not specified"}</span>
+              </div>
+              
+              <div className="flex flex-col items-center p-3 text-center">
+                <Droplets className="h-5 w-5 text-plant-mint mb-1" />
+                <span className="text-xs text-plant-gray">Water</span>
+                <span className="text-sm font-medium mt-1">{plant.watering_frequency || "Not specified"}</span>
+              </div>
+              
+              <div className="flex flex-col items-center p-3 text-center">
+                <GanttChart className="h-5 w-5 text-plant-brown mb-1" />
+                <span className="text-xs text-plant-gray">Difficulty</span>
+                <span className="text-sm font-medium mt-1">{plant.difficulty || "Not specified"}</span>
+              </div>
+            </div>
+            
+            {/* Care instructions */}
+            {plant.care_instructions && (
+              <div className="space-y-1">
+                <h3 className="text-sm font-medium text-plant-dark-green">Care Instructions</h3>
+                <p className="text-sm text-plant-gray">{plant.care_instructions}</p>
+              </div>
+            )}
+            
+            {/* Swap preferences */}
+            {plant.swap_preferences && (
+              <div className="space-y-1">
+                <h3 className="text-sm font-medium text-plant-dark-green">Swap Preferences</h3>
+                <p className="text-sm text-plant-gray">{plant.swap_preferences}</p>
+              </div>
+            )}
+            
+            {/* Owner info */}
+            <div className="flex justify-between items-center pt-4 border-t border-plant-mint/20">
+              <Link to={`/profile/${plant.owner?.username || plant.owner_id}`} className="flex items-center gap-3">
+                <Avatar>
+                  <AvatarImage src={plant.owner?.avatar_url || undefined} />
+                  <AvatarFallback>{plant.owner?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium">{plant.owner?.username || "Plant Owner"}</p>
+                  <div className="flex items-center gap-1 text-xs text-plant-gray">
+                    {plant.owner?.location && (
+                      <>
+                        <MapPin className="h-3 w-3" />
+                        <span>{plant.owner.location}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Link>
+              <div className="text-xs text-plant-gray">
+                Added {formatDistanceToNow(new Date(plant.created_at), { addSuffix: true })}
+              </div>
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex gap-3 pt-4">
+              {isOwner ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    className="border-red-200 hover:bg-red-50 w-full"
+                    onClick={() => setShowDeleteModal(true)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Plant
+                  </Button>
+                  <Button 
+                    className="bg-plant-dark-green hover:bg-plant-dark-green/90 w-full"
+                    onClick={() => navigate(`/edit-plant/${plant.id}`)}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Plant
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    variant="outline" 
+                    className="border-plant-mint/50 hover:bg-plant-mint/10 w-full"
+                    onClick={() => navigate(`/messages?user=${plant.owner_id}`)}
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Message Owner
+                  </Button>
+                  <Button 
+                    className={`w-full ${plant.available_for_swap ? 'bg-plant-dark-green hover:bg-plant-dark-green/90' : 'bg-gray-400 hover:bg-gray-400/90'}`}
+                    onClick={() => setShowSwapModal(true)}
+                    disabled={!plant.available_for_swap || !!existingSwapRequest}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    {existingSwapRequest ? 
+                      `Request ${existingSwapRequest.status}` : 
+                      "Request Swap"}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
       </main>
+      
+      {/* Swap Request Modal */}
+      <Dialog open={showSwapModal} onOpenChange={setShowSwapModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request to Swap</DialogTitle>
+            <DialogDescription>
+              Send a swap request to the owner of this plant. Include information about what plants you can offer in exchange.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <Textarea
+              placeholder="Hi! I'm interested in swapping for your plant. Would you like to see what I have available?"
+              value={swapMessage}
+              onChange={(e) => setSwapMessage(e.target.value)}
+              rows={4}
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSwapModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              className="bg-plant-dark-green hover:bg-plant-dark-green/90"
+              onClick={handleSwapRequest}
+              disabled={isCreating || !swapMessage.trim()}
+            >
+              {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Send Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Plant</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this plant? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeletePlant}
+              disabled={isDeleting}
+            >
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete Plant
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
