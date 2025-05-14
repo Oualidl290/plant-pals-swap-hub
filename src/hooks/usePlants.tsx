@@ -33,11 +33,49 @@ export function usePlants() {
     onlyAvailable: false,
   });
   const [sortBy, setSortBy] = useState('newest');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(9); // Default page size
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Get all plants with search and filters
+  // Get all plants with search, filters and pagination
   const { data: plants, isLoading, error } = useQuery({
-    queryKey: ['plants', searchTerm, filterOptions, sortBy],
+    queryKey: ['plants', searchTerm, filterOptions, sortBy, currentPage, pageSize],
     queryFn: async () => {
+      // First, get the total count
+      let countQuery = supabase.from('plants').select('id', { count: 'exact' });
+      
+      // Apply search term for count
+      if (searchTerm) {
+        countQuery = countQuery.or(`name.ilike.%${searchTerm}%,species.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+      }
+      
+      // Apply filters for count
+      if (filterOptions.difficulty !== 'all') {
+        countQuery = countQuery.eq('difficulty', filterOptions.difficulty);
+      }
+      
+      if (filterOptions.sunlight !== 'all') {
+        countQuery = countQuery.eq('sunlight', filterOptions.sunlight);
+      }
+      
+      if (filterOptions.size !== 'all') {
+        countQuery = countQuery.eq('size', filterOptions.size);
+      }
+      
+      if (filterOptions.onlyAvailable) {
+        countQuery = countQuery.eq('available_for_swap', true);
+      }
+      
+      const { count, error: countError } = await countQuery;
+      
+      if (countError) throw countError;
+      if (count !== null) {
+        setTotalCount(count);
+      }
+      
+      // Now fetch the actual data with pagination
       let query = supabase.from('plants').select(`
         *,
         profiles!inner(username, avatar_url, location)
@@ -79,6 +117,11 @@ export function usePlants() {
         default:
           query = query.order('created_at', { ascending: false });
       }
+      
+      // Apply pagination
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+      query = query.range(from, to);
 
       const { data, error } = await query;
 
@@ -295,6 +338,13 @@ export function usePlants() {
     checkFavoriteStatus,
     isCreating: createPlantMutation.isPending,
     isUpdating: updatePlantMutation.isPending,
-    isDeleting: deletePlantMutation.isPending
+    isDeleting: deletePlantMutation.isPending,
+    // Pagination properties
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalCount,
+    totalPages: Math.ceil(totalCount / pageSize)
   };
 }
