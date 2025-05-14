@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { PlantWithDetails, FavoriteStatus } from '@/types/supabase';
 
 export interface PlantFormData {
   name: string;
@@ -18,11 +19,6 @@ export interface PlantFormData {
   care_instructions?: string | null;
   swap_preferences?: string | null;
   location?: string | null;
-}
-
-export interface FavoriteStatus {
-  plantId: string;
-  favorited: boolean;
 }
 
 export function usePlants() {
@@ -87,7 +83,7 @@ export function usePlants() {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data || [];
+      return data as PlantWithDetails[];
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -105,7 +101,7 @@ export function usePlants() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return data as PlantWithDetails[];
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     enabled: !!user,
@@ -117,13 +113,13 @@ export function usePlants() {
       .from('plants')
       .select(`
         *,
-        profiles!inner(username, avatar_url, location, bio)
+        owner:profiles!plants_owner_id_fkey(id, username, avatar_url, location, bio)
       `)
       .eq('id', id)
       .single();
 
     if (error) throw error;
-    return data;
+    return data as PlantWithDetails;
   };
 
   // Create plant mutation
@@ -219,31 +215,31 @@ export function usePlants() {
     }
   });
 
-  // Toggle favorite mutation
+  // Toggle favorite mutation using RPC
   const toggleFavoriteMutation = useMutation({
     mutationFn: async (plantId: string) => {
       if (!user) throw new Error('You must be logged in to favorite a plant');
 
-      // Check if already favorited using raw query
+      // Check if already favorited using RPC
       const { data: existingFavorite, error: checkError } = await supabase
         .rpc('get_favorite', { p_user_id: user.id, p_plant_id: plantId });
 
       if (checkError) throw checkError;
 
       if (existingFavorite && existingFavorite.length > 0) {
-        // Remove favorite using raw query
+        // Remove favorite using RPC
         const { error } = await supabase
           .rpc('remove_favorite', { p_user_id: user.id, p_plant_id: plantId });
 
         if (error) throw error;
-        return { plantId, favorited: false };
+        return { plantId, favorited: false } as FavoriteStatus;
       } else {
-        // Add favorite using raw query
+        // Add favorite using RPC
         const { error } = await supabase
           .rpc('add_favorite', { p_user_id: user.id, p_plant_id: plantId });
 
         if (error) throw error;
-        return { plantId, favorited: true };
+        return { plantId, favorited: true } as FavoriteStatus;
       }
     },
     onSuccess: (result) => {

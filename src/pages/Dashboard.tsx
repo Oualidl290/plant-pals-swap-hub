@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { PlantCard } from "@/components/PlantCard";
@@ -19,6 +18,7 @@ import { useMessages } from "@/hooks/useMessages";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SwapRequestWithDetails } from "@/types/supabase";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -35,10 +35,10 @@ export default function Dashboard() {
     new Date(conv.lastMessage.sent_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
   ).length || 0;
   
-  // Combine sent and received requests
+  // Combine sent and received requests with type annotation
   const allRequests = [
-    ...(sentRequests || []).map(req => ({ ...req, type: 'sent' })),
-    ...(receivedRequests || []).map(req => ({ ...req, type: 'received' }))
+    ...(sentRequests || []).map(req => ({ ...req, type: 'sent' } as SwapRequestWithDetails)),
+    ...(receivedRequests || []).map(req => ({ ...req, type: 'received' } as SwapRequestWithDetails))
   ].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
   
   const isLoading = isLoadingUserPlants || isLoadingSent || isLoadingReceived || isLoadingConversations;
@@ -193,18 +193,18 @@ export default function Dashboard() {
                             <div className="flex items-center gap-3">
                               <div className="w-12 h-12 rounded-md overflow-hidden">
                                 <img 
-                                  src={request.plants.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop'} 
-                                  alt={request.plants.name} 
+                                  src={request.plants?.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop'} 
+                                  alt={request.plants?.name || 'Plant'} 
                                   className="w-full h-full object-cover"
                                 />
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <h3 className="font-medium">{request.plants.name}</h3>
+                                  <h3 className="font-medium">{request.plants?.name || 'Unknown plant'}</h3>
                                   <Badge variant={
                                     request.status === 'pending' ? 'outline' :
                                     request.status === 'accepted' ? 'default' :
-                                    request.status === 'completed' ? 'success' :
+                                    request.status === 'completed' ? 'default' :
                                     'destructive'
                                   }>
                                     {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
@@ -213,11 +213,11 @@ export default function Dashboard() {
                                 
                                 {request.type === 'sent' ? (
                                   <p className="text-sm text-plant-gray">
-                                    You requested from {request.plants.profiles.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+                                    You requested from {request.plants.profiles?.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
                                   </p>
                                 ) : (
                                   <p className="text-sm text-plant-gray">
-                                    Requested by {request.requester.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+                                    Requested by {request.requester?.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
                                   </p>
                                 )}
                               </div>

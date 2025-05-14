@@ -35,6 +35,7 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { PlantWithDetails } from "@/types/supabase";
 
 export default function PlantDetail() {
   const { id } = useParams<{ id: string }>();
@@ -58,13 +59,13 @@ export default function PlantDetail() {
         .from('plants')
         .select(`
           *,
-          owner:profiles!plants_owner_id_fkey(id, username, avatar_url, location, rating)
+          owner:profiles!plants_owner_id_fkey(id, username, avatar_url, location)
         `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data;
+      return data as PlantWithDetails;
     },
     enabled: !!id
   });
@@ -74,15 +75,13 @@ export default function PlantDetail() {
     queryKey: ['favorite', id, user?.id],
     queryFn: async () => {
       if (!id || !user) return false;
-      
+
+      // Use RPC function to check favorite status
       const { data, error } = await supabase
-        .from('favorites')
-        .select('id')
-        .eq('plant_id', id)
-        .eq('user_id', user.id)
-        .single();
+        .rpc('get_favorite', { p_user_id: user.id, p_plant_id: id });
         
-      return !!data && !error;
+      if (error) throw error;
+      return data && data.length > 0;
     },
     enabled: !!id && !!user
   });

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { ProfileWithDetails, Review } from '@/types/supabase';
 
 export interface ProfileData {
   username?: string | null;
@@ -12,19 +13,6 @@ export interface ProfileData {
   instagram?: string | null;
   twitter?: string | null;
   email?: string | null;
-}
-
-export interface Review {
-  id: string;
-  user_id: string;
-  reviewer_id: string;
-  rating: number;
-  comment?: string | null;
-  created_at: string;
-  reviewer?: {
-    username: string;
-    avatar_url: string | null;
-  };
 }
 
 export function useProfile() {
@@ -47,7 +35,7 @@ export function useProfile() {
       : query.eq('username', usernameOrId).single());
     
     if (error) throw error;
-    return data;
+    return data as ProfileWithDetails;
   };
 
   // Get current user's profile
@@ -63,13 +51,13 @@ export function useProfile() {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as ProfileWithDetails;
     },
     enabled: !!user
   });
 
   // Get reviews for a user
-  const getReviews = async (userId: string) => {
+  const getReviews = async (userId: string): Promise<Review[]> => {
     // Use RPC call instead of direct table access
     const { data, error } = await supabase.rpc('get_user_reviews', { p_user_id: userId });
       
@@ -94,7 +82,7 @@ export function useProfile() {
       // Also update the profile in the auth context
       await updateAuthProfile(profileData);
       
-      return data;
+      return data as ProfileWithDetails;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });

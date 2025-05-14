@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { usePlants } from "@/hooks/usePlants";
 import { Link } from "react-router-dom";
+import { PlantWithDetails } from "@/types/supabase";
 
 export default function Plants() {
   const [showFilters, setShowFilters] = useState(false);
@@ -157,7 +158,7 @@ export default function Plants() {
                 <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green" />
               </div>
             ) : plants && plants.length > 0 ? (
-              plants.map((plant) => (
+              plants.map((plant: PlantWithDetails) => (
                 <Link to={`/plants/${plant.id}`} key={plant.id}>
                   <PlantCard 
                     plant={{
@@ -165,10 +166,10 @@ export default function Plants() {
                       name: plant.name,
                       species: plant.species || '',
                       image: plant.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop',
-                      distance: plant.profiles.location || 'Unknown location',
+                      distance: plant.profiles?.location || 'Unknown location',
                       owner: {
-                        name: plant.profiles.username || 'Unknown user',
-                        avatar: plant.profiles.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3540&auto=format&fit=crop'
+                        name: plant.profiles?.username || 'Unknown user',
+                        avatar: plant.profiles?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3540&auto=format&fit=crop'
                       },
                       sunlight: plant.sunlight || 'Not specified',
                       wateringFrequency: plant.watering_frequency || 'Not specified',
