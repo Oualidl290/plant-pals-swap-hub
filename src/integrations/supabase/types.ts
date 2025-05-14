@@ -9,6 +9,35 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      favorites: {
+        Row: {
+          created_at: string
+          id: string
+          plant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_plant_id_fkey"
+            columns: ["plant_id"]
+            isOneToOne: false
+            referencedRelation: "plants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -51,36 +80,57 @@ export type Database = {
       plants: {
         Row: {
           available_for_swap: boolean
+          care_instructions: string | null
           created_at: string
           description: string | null
+          difficulty: string | null
           id: string
           image_url: string | null
+          location: string | null
           name: string
           owner_id: string
+          size: string | null
           species: string | null
+          sunlight: string | null
+          swap_preferences: string | null
           updated_at: string
+          watering_frequency: string | null
         }
         Insert: {
           available_for_swap?: boolean
+          care_instructions?: string | null
           created_at?: string
           description?: string | null
+          difficulty?: string | null
           id?: string
           image_url?: string | null
+          location?: string | null
           name: string
           owner_id: string
+          size?: string | null
           species?: string | null
+          sunlight?: string | null
+          swap_preferences?: string | null
           updated_at?: string
+          watering_frequency?: string | null
         }
         Update: {
           available_for_swap?: boolean
+          care_instructions?: string | null
           created_at?: string
           description?: string | null
+          difficulty?: string | null
           id?: string
           image_url?: string | null
+          location?: string | null
           name?: string
           owner_id?: string
+          size?: string | null
           species?: string | null
+          sunlight?: string | null
+          swap_preferences?: string | null
           updated_at?: string
+          watering_frequency?: string | null
         }
         Relationships: [
           {
@@ -119,6 +169,33 @@ export type Database = {
           location?: string | null
           updated_at?: string
           username?: string | null
+        }
+        Relationships: []
+      }
+      reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          rating: number
+          reviewer_id: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating: number
+          reviewer_id: string
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating?: number
+          reviewer_id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -172,7 +249,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_favorite: {
+        Args: { p_user_id: string; p_plant_id: string }
+        Returns: undefined
+      }
+      create_review: {
+        Args: {
+          p_user_id: string
+          p_reviewer_id: string
+          p_rating: number
+          p_comment: string
+        }
+        Returns: string
+      }
+      get_favorite: {
+        Args: { p_user_id: string; p_plant_id: string }
+        Returns: {
+          id: string
+          user_id: string
+          plant_id: string
+        }[]
+      }
+      get_user_reviews: {
+        Args: { p_user_id: string }
+        Returns: {
+          id: string
+          user_id: string
+          reviewer_id: string
+          rating: number
+          comment: string
+          created_at: string
+          reviewer_username: string
+          reviewer_avatar_url: string
+        }[]
+      }
+      remove_favorite: {
+        Args: { p_user_id: string; p_plant_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
