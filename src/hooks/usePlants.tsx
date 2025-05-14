@@ -20,6 +20,11 @@ export interface PlantFormData {
   location?: string | null;
 }
 
+export interface FavoriteStatus {
+  plantId: string;
+  favorited: boolean;
+}
+
 export function usePlants() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -219,35 +224,23 @@ export function usePlants() {
     mutationFn: async (plantId: string) => {
       if (!user) throw new Error('You must be logged in to favorite a plant');
 
-      // Check if already favorited
+      // Check if already favorited using raw query
       const { data: existingFavorite, error: checkError } = await supabase
-        .from('favorites')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('plant_id', plantId)
-        .single();
+        .rpc('get_favorite', { p_user_id: user.id, p_plant_id: plantId });
 
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is the "no rows returned" error
-        throw checkError;
-      }
+      if (checkError) throw checkError;
 
-      if (existingFavorite) {
-        // Remove favorite
+      if (existingFavorite && existingFavorite.length > 0) {
+        // Remove favorite using raw query
         const { error } = await supabase
-          .from('favorites')
-          .delete()
-          .eq('id', existingFavorite.id);
+          .rpc('remove_favorite', { p_user_id: user.id, p_plant_id: plantId });
 
         if (error) throw error;
         return { plantId, favorited: false };
       } else {
-        // Add favorite
+        // Add favorite using raw query
         const { error } = await supabase
-          .from('favorites')
-          .insert({
-            user_id: user.id,
-            plant_id: plantId
-          });
+          .rpc('add_favorite', { p_user_id: user.id, p_plant_id: plantId });
 
         if (error) throw error;
         return { plantId, favorited: true };
@@ -271,6 +264,21 @@ export function usePlants() {
     }
   });
 
+  // Check if a plant is favorited
+  const checkFavoriteStatus = async (plantId: string): Promise<boolean> => {
+    if (!user) return false;
+    
+    const { data, error } = await supabase
+      .rpc('get_favorite', { p_user_id: user.id, p_plant_id: plantId });
+      
+    if (error) {
+      console.error('Error checking favorite status:', error);
+      return false;
+    }
+    
+    return data && data.length > 0;
+  };
+
   return {
     plants,
     userPlants,
@@ -288,6 +296,7 @@ export function usePlants() {
     updatePlant: updatePlantMutation.mutate,
     deletePlant: deletePlantMutation.mutate,
     toggleFavorite: toggleFavoriteMutation.mutate,
+    checkFavoriteStatus,
     isCreating: createPlantMutation.isPending,
     isUpdating: updatePlantMutation.isPending,
     isDeleting: deletePlantMutation.isPending

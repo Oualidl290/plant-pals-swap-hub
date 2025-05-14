@@ -70,14 +70,8 @@ export function useProfile() {
 
   // Get reviews for a user
   const getReviews = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select(`
-        *,
-        reviewer:profiles!reviews_reviewer_id_fkey(username, avatar_url)
-      `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    // Use RPC call instead of direct table access
+    const { data, error } = await supabase.rpc('get_user_reviews', { p_user_id: userId });
       
     if (error) throw error;
     return data || [];
@@ -123,16 +117,13 @@ export function useProfile() {
     mutationFn: async ({ userId, rating, comment }: { userId: string, rating: number, comment?: string }) => {
       if (!user) throw new Error('You must be logged in to leave a review');
       
-      const { data, error } = await supabase
-        .from('reviews')
-        .insert({
-          user_id: userId,
-          reviewer_id: user.id,
-          rating,
-          comment
-        })
-        .select()
-        .single();
+      // Use RPC call to create a review
+      const { data, error } = await supabase.rpc('create_review', {
+        p_user_id: userId,
+        p_reviewer_id: user.id,
+        p_rating: rating,
+        p_comment: comment || null
+      });
 
       if (error) throw error;
       return data;
