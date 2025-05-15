@@ -53,6 +53,11 @@ export default function Dashboard() {
     updateSwapRequest({ id: requestId, status: newStatus });
   };
   
+  // Add this function for navigation to swaps page
+  const navigateToSwaps = () => {
+    window.location.href = "/swaps";
+  };
+  
   return (
     <div className="min-h-screen bg-plant-cream/50">
       <Navbar />
@@ -82,7 +87,11 @@ export default function Dashboard() {
             <>
               {/* Stats cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="bg-plant-mint/20 border-plant-mint">
+                {/* Plants card */}
+                <Card 
+                  className="bg-plant-mint/20 border-plant-mint"
+                  onClick={() => window.location.href = "/plants"}
+                >
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center">
                       <Sprout className="mr-2 h-5 w-5 text-plant-dark-green" />
@@ -95,7 +104,11 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-plant-gold/10 border-plant-gold/30">
+                {/* Swaps card */}
+                <Card 
+                  className="bg-plant-gold/10 border-plant-gold/30 cursor-pointer hover:bg-plant-gold/20 transition-colors"
+                  onClick={navigateToSwaps}
+                >
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center">
                       <RefreshCw className="mr-2 h-5 w-5 text-plant-brown" />
@@ -108,7 +121,11 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-plant-sage/10 border-plant-sage/30">
+                {/* Messages card */}
+                <Card 
+                  className="bg-plant-sage/10 border-plant-sage/30 cursor-pointer hover:bg-plant-sage/20 transition-colors"
+                  onClick={() => window.location.href = "/messages"}
+                >
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center">
                       <MessageSquare className="mr-2 h-5 w-5 text-plant-sage" />
@@ -197,96 +214,110 @@ export default function Dashboard() {
                 {activeTab === "swaps" && (
                   <div className="space-y-4">
                     {allRequests.length > 0 ? (
-                      allRequests.map((request) => (
-                        <div key={request.id} className="p-4 rounded-lg border border-plant-mint/30 bg-white">
-                          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-md overflow-hidden">
-                                <img 
-                                  src={request.plants?.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop'} 
-                                  alt={request.plants?.name || 'Plant'} 
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-medium">{request.plants?.name || 'Unknown plant'}</h3>
-                                  <Badge variant={
-                                    request.status === 'pending' ? 'outline' :
-                                    request.status === 'accepted' ? 'default' :
-                                    request.status === 'completed' ? 'default' :
-                                    'destructive'
-                                  }>
-                                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                                  </Badge>
+                      <>
+                        <div className="flex justify-between items-center">
+                          <h2 className="text-lg font-medium text-plant-dark-green">Recent Swap Requests</h2>
+                          <Button 
+                            variant="outline" 
+                            className="border-plant-dark-green text-plant-dark-green hover:bg-plant-mint/10"
+                            onClick={navigateToSwaps}
+                          >
+                            View All Swaps
+                          </Button>
+                        </div>
+                        
+                        {/* Only show 3 most recent requests */}
+                        {allRequests.slice(0, 3).map((request) => (
+                          <div key={request.id} className="p-4 rounded-lg border border-plant-mint/30 bg-white">
+                            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-md overflow-hidden">
+                                  <img 
+                                    src={request.plants?.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop'} 
+                                    alt={request.plants?.name || 'Plant'} 
+                                    className="w-full h-full object-cover"
+                                  />
                                 </div>
-                                
-                                {request.type === 'sent' ? (
-                                  <p className="text-sm text-plant-gray">
-                                    You requested from {request.plants?.profiles?.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
-                                  </p>
-                                ) : (
-                                  <p className="text-sm text-plant-gray">
-                                    Requested by {request.requester?.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
-                                  </p>
-                                )}
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-medium">{request.plants?.name || 'Unknown plant'}</h3>
+                                    <Badge variant={
+                                      request.status === 'pending' ? 'outline' :
+                                      request.status === 'accepted' ? 'default' :
+                                      request.status === 'completed' ? 'default' :
+                                      'destructive'
+                                    }>
+                                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                                    </Badge>
+                                  </div>
+                                  
+                                  {request.type === 'sent' ? (
+                                    <p className="text-sm text-plant-gray">
+                                      You requested from {request.plants?.profiles?.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-plant-gray">
+                                      Requested by {request.requester?.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              {request.status === 'pending' && request.type === 'received' && (
-                                <>
+                              
+                              <div className="flex gap-2">
+                                {request.status === 'pending' && request.type === 'received' && (
+                                  <>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      className="border-red-200 hover:bg-red-50"
+                                      onClick={() => handleUpdateStatus(request.id, 'declined')}
+                                    >
+                                      Decline
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      className="border-plant-mint hover:bg-plant-mint/10"
+                                      onClick={() => handleUpdateStatus(request.id, 'accepted')}
+                                    >
+                                      Accept
+                                    </Button>
+                                  </>
+                                )}
+                                
+                                {request.status === 'pending' && request.type === 'sent' && (
                                   <Button 
                                     variant="outline" 
                                     size="sm"
                                     className="border-red-200 hover:bg-red-50"
-                                    onClick={() => handleUpdateStatus(request.id, 'declined')}
+                                    onClick={() => handleUpdateStatus(request.id, 'canceled')}
                                   >
-                                    Decline
+                                    Cancel
                                   </Button>
+                                )}
+                                
+                                {request.status === 'accepted' && (
                                   <Button 
                                     variant="outline" 
                                     size="sm"
                                     className="border-plant-mint hover:bg-plant-mint/10"
-                                    onClick={() => handleUpdateStatus(request.id, 'accepted')}
+                                    onClick={() => handleUpdateStatus(request.id, 'completed')}
                                   >
-                                    Accept
+                                    Mark Completed
                                   </Button>
-                                </>
-                              )}
-                              
-                              {request.status === 'pending' && request.type === 'sent' && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="border-red-200 hover:bg-red-50"
-                                  onClick={() => handleUpdateStatus(request.id, 'canceled')}
-                                >
-                                  Cancel
-                                </Button>
-                              )}
-                              
-                              {request.status === 'accepted' && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="border-plant-mint hover:bg-plant-mint/10"
-                                  onClick={() => handleUpdateStatus(request.id, 'completed')}
-                                >
-                                  Mark Completed
-                                </Button>
-                              )}
-                              
-                              <Link to={`/messages?swap=${request.id}`}>
-                                <Button variant="default" size="sm" className="bg-plant-dark-green hover:bg-plant-dark-green/90">
-                                  <MessageSquare className="h-4 w-4 mr-1" />
-                                  Message
-                                </Button>
-                              </Link>
+                                )}
+                                
+                                <Link to={`/messages?swap=${request.id}`}>
+                                  <Button variant="default" size="sm" className="bg-plant-dark-green hover:bg-plant-dark-green/90">
+                                    <MessageSquare className="h-4 w-4 mr-1" />
+                                    Message
+                                  </Button>
+                                </Link>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        ))}
+                      </>
                     ) : (
                       <div className="text-center py-10 text-plant-gray">
                         <p>No active swap requests</p>

@@ -1,21 +1,8 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Leaf, 
-  Menu, 
-  X, 
-  User,
-  LogOut,
-  MessageSquare,
-  Sprout,
-  Home
-} from "lucide-react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { AuthModal } from './AuthModal';
 import { useAuth } from "@/contexts/AuthContext";
-import { UserAvatar } from './UserAvatar';
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -23,248 +10,104 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LoadingScreen } from './auth/LoadingScreen';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LogOut, Settings, User } from "lucide-react";
+
+const navigation = [
+  { name: "Home", href: "/", current: false },
+  { name: "Plants", href: "/plants", current: false },
+  { name: "Swaps", href: "/swaps", current: false },
+];
 
 export function Navbar() {
-  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const location = useLocation();
-  const { user, status, signOut } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
-  
-  const openSignIn = () => {
-    navigate('/auth');
-  };
-  
-  const openSignUp = () => {
-    setAuthMode('signup');
-    navigate('/auth');
-  };
+  const navigate = useNavigate();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
-  };
-
-  // If auth is still loading, don't render navbar yet
-  if (status === "loading") {
-    return <LoadingScreen />;
-  }
-
-  const isActive = (path: string) => {
-    return location.pathname === path;
+    navigate("/auth");
   };
 
   return (
-    <>
-      <header className="bg-white/80 backdrop-blur-sm sticky top-0 z-40 w-full border-b border-plant-mint/30">
-        <nav className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 text-plant-dark-green">
-            <Leaf className="h-6 w-6" />
-            <span className="font-serif font-bold text-xl">PlantPals</span>
+    <div className="bg-white border-b border-plant-mint/30">
+      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        {/* Logo and Navigation */}
+        <div className="flex items-center space-x-6">
+          <Link to="/" className="font-bold text-xl text-plant-dark-green font-serif">
+            PlantSwap
           </Link>
-          
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-8">
-            {status === "authenticated" ? (
-              // Links for authenticated users
-              <>
-                <Link 
-                  to="/dashboard" 
-                  className={`flex items-center text-plant-dark hover:text-plant-dark-green transition-colors ${
-                    isActive('/dashboard') ? 'text-plant-dark-green font-medium' : ''
-                  }`}
-                >
-                  <Home className="mr-1 h-4 w-4" />
-                  Dashboard
-                </Link>
-                <Link 
-                  to="/plants" 
-                  className={`flex items-center text-plant-dark hover:text-plant-dark-green transition-colors ${
-                    isActive('/plants') ? 'text-plant-dark-green font-medium' : ''
-                  }`}
-                >
-                  <Sprout className="mr-1 h-4 w-4" />
-                  Browse Plants
-                </Link>
-                <Link 
-                  to="/messages" 
-                  className={`flex items-center text-plant-dark hover:text-plant-dark-green transition-colors ${
-                    isActive('/messages') ? 'text-plant-dark-green font-medium' : ''
-                  }`}
-                >
-                  <MessageSquare className="mr-1 h-4 w-4" />
-                  Messages
-                </Link>
-              </>
-            ) : (
-              // Links for guests
-              <>
-                <Link to="/plants" className="text-plant-dark hover:text-plant-dark-green transition-colors">Browse Plants</Link>
-                <a href="#how-it-works" className="text-plant-dark hover:text-plant-dark-green transition-colors">How It Works</a>
-                <a href="#about" className="text-plant-dark hover:text-plant-dark-green transition-colors">About Us</a>
-              </>
-            )}
-            
-            {status === "authenticated" && user ? (
+          <div className="hidden md:flex space-x-4">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={`text-plant-gray hover:text-plant-dark-green px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  location.pathname === item.href ? "text-plant-dark-green" : ""
+                }`}
+              >
+                {item.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Auth Buttons */}
+        {isMounted && (
+          <div className="flex items-center space-x-4">
+            {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="rounded-full p-0 h-9 w-9">
-                    <UserAvatar 
-                      src={user?.user_metadata?.avatar_url} 
-                      fallback={user?.user_metadata?.full_name || user?.email} 
-                    />
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.user_metadata?.full_name} />
+                      <AvatarFallback>{user?.user_metadata?.full_name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    {user.user_metadata?.full_name || user.email}
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user?.user_metadata?.full_name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user?.email}
+                      </p>
+                    </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/dashboard">Dashboard</Link>
+                  <DropdownMenuItem onClick={() => navigate(`/profile/${user?.user_metadata?.username}`)} >
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile/me">My Profile</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/messages">Messages</Link>
+                  <DropdownMenuItem onClick={() => navigate('/onboarding')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+                  <DropdownMenuItem onClick={handleSignOut} >
                     <LogOut className="mr-2 h-4 w-4" />
-                    Sign Out
+                    <span>Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <>
-                <Button 
-                  variant="outline"
-                  className="text-plant-dark-green border-plant-dark-green hover:bg-plant-dark-green hover:text-white"
-                  onClick={openSignIn}
-                >
-                  Sign In
-                </Button>
-                <Button 
-                  className="bg-plant-dark-green hover:bg-plant-dark-green/90 text-white"
-                  onClick={openSignUp}
-                >
-                  Join Now
-                </Button>
+                <Link to="/auth">
+                  <Button variant="outline">Log In</Button>
+                </Link>
+                <Link to="/auth">
+                  <Button>Sign Up</Button>
+                </Link>
               </>
             )}
           </div>
-          
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center">
-            {status === "authenticated" && user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="rounded-full p-0 h-9 w-9 mr-2">
-                    <UserAvatar 
-                      src={user?.user_metadata?.avatar_url} 
-                      fallback={user?.user_metadata?.full_name || user?.email} 
-                    />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link to="/dashboard">Dashboard</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile/me">My Profile</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/messages">Messages</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="text-plant-dark-green p-2"
-            >
-              {mobileMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
-            </button>
-          </div>
-        </nav>
-        
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-plant-mint/30 animate-fade-in">
-            <div className="px-4 py-5 space-y-4">
-              {status === "authenticated" ? (
-                // Links for authenticated users
-                <>
-                  <Link 
-                    to="/dashboard" 
-                    className="block text-plant-dark hover:text-plant-dark-green"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                  <Link 
-                    to="/plants" 
-                    className="block text-plant-dark hover:text-plant-dark-green"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Browse Plants
-                  </Link>
-                  <Link 
-                    to="/messages" 
-                    className="block text-plant-dark hover:text-plant-dark-green"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Messages
-                  </Link>
-                </>
-              ) : (
-                // Links for guests
-                <>
-                  <Link to="/plants" className="block text-plant-dark hover:text-plant-dark-green">Browse Plants</Link>
-                  <a href="#how-it-works" className="block text-plant-dark hover:text-plant-dark-green">How It Works</a>
-                  <a href="#about" className="block text-plant-dark hover:text-plant-dark-green">About Us</a>
-                </>
-              )}
-              
-              {status !== "authenticated" && (
-                <div className="pt-4 flex flex-col space-y-3">
-                  <Button 
-                    variant="outline"
-                    className="w-full justify-center text-plant-dark-green border-plant-dark-green hover:bg-plant-dark-green hover:text-white"
-                    onClick={() => {
-                      openSignIn();
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Sign In
-                  </Button>
-                  <Button 
-                    className="w-full justify-center bg-plant-dark-green hover:bg-plant-dark-green/90 text-white"
-                    onClick={() => {
-                      openSignUp();
-                      setMobileMenuOpen(false);
-                    }}
-                  >
-                    Join Now
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
         )}
-      </header>
-    </>
+      </div>
+    </div>
   );
 }

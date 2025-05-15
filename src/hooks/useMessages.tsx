@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 
 export interface Message {
   id: string;
@@ -18,114 +19,201 @@ export interface Message {
   };
 }
 
-export function useMessages(swapRequestId?: string) {
+export interface Conversation {
+  id: string;
+  plants: any;
+  status: string;
+  message: string | null;
+  created_at: string;
+  updated_at: string;
+  otherUser: {
+    username: string | null;
+    avatar_url: string | null;
+  };
+  lastMessage?: Message;
+}
+
+export function useMessages(activeConversationId?: string | null) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [newMessages, setNewMessages] = useState<Message[]>([]);
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  
+  // Extract swap request ID from URL if provided
+  const swapIdFromUrl = searchParams.get('swap');
+  
+  // Effect to set the active conversation from URL parameter
+  useEffect(() => {
+    if (swapIdFromUrl && typeof onConversationSelect === 'function') {
+      onConversationSelect(swapIdFromUrl);
+    }
+  }, [swapIdFromUrl]);
 
-  // Get messages for a specific swap request
-  const { data: messages, isLoading, error } = useQuery({
-    queryKey: ['messages', swapRequestId],
-    queryFn: async () => {
-      if (!swapRequestId || !user) return [];
-      
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          sender:profiles!messages_sender_id_fkey(username, avatar_url)
-        `)
-        .eq('swap_request_id', swapRequestId)
-        .order('sent_at', { ascending: true });
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!swapRequestId && !!user
-  });
-
-  // Get all user's conversations
+  // Get all conversations
   const { data: conversations, isLoading: isLoadingConversations } = useQuery({
     queryKey: ['conversations'],
     queryFn: async () => {
       if (!user) return [];
       
-      // Get all swap requests user is involved with
-      const { data: swapRequests, error: swapError } = await supabase
+      // First get sent swap requests
+      const { data: sentRequests, error: sentError } = await supabase
         .from('swap_requests')
         .select(`
-          id, 
-          status,
-          created_at,
-          updated_at,
-          plant_id,
-          requester_id,
-          plants!inner(*),
-          requester:profiles!swap_requests_requester_id_fkey(username, avatar_url),
-          owner:plants!inner(owner_id, profiles!plants_owner_id_fkey(username, avatar_url))
+          *,
+          plants(*),
+          profiles!swap_requests_requester_id_fkey(username, avatar_url)
         `)
-        .or(`requester_id.eq.${user.id},plants.owner_id.eq.${user.id}`)
-        .order('updated_at', { ascending: false });
+        .eq('requester_id', user.id);
       
-      if (swapError) throw swapError;
+      if (sentError) throw sentError;
       
-      // For each swap request, get the latest message
-      const conversationsWithLastMessage = await Promise.all((swapRequests || []).map(async (swap) => {
-        const { data: lastMessage, error: messageError } = await supabase
+      // Then get received swap requests
+      const { data: receivedRequests, error: receivedError } = await supabase
+        .from('swap_requests')
+        .select(`
+          *,
+          plants(*),
+          requester:profiles!swap_requests_requester_id_fkey(username, avatar_url)
+        `)
+        .eq('plants.owner_id', user.id);
+      
+      if (receivedError) throw receivedError;
+      
+      // Combine and format the conversations
+      const allConversations: Conversation[] = [
+        ...(sentRequests?.map(req => ({
+          id: req.id,
+          plants: req.plants,
+          status: req.status,
+          message: req.message,
+          created_at: req.created_at,
+          updated_at: req.updated_at,
+          otherUser: {
+            username: req.plants?.profiles?.username,
+            avatar_url: req.plants?.profiles?.avatar_url
+          }
+        })) || []),
+        ...(receivedRequests?.map(req => ({
+          id: req.id,
+          plants: req.plants,
+          status: req.status,
+          message: req.message,
+          created_at: req.created_at,
+          updated_at: req.updated_at,
+          otherUser: {
+            username: req.requester?.username,
+            avatar_url: req.requester?.avatar_url
+          }
+        })) || [])
+      ];
+      
+      // Get last messages for each conversation
+      for (const conversation of allConversations) {
+        const { data: messages, error: messagesError } = await supabase
           .from('messages')
           .select(`
             *,
             sender:profiles!messages_sender_id_fkey(username, avatar_url)
           `)
-          .eq('swap_request_id', swap.id)
+          .eq('swap_request_id', conversation.id)
           .order('sent_at', { ascending: false })
           .limit(1);
-        
-        if (messageError) console.error('Error fetching message:', messageError);
-        
-        return {
-          ...swap,
-          lastMessage: lastMessage && lastMessage.length > 0 ? lastMessage[0] : null,
-          otherUser: swap.requester_id === user.id ? swap.owner.profiles : swap.requester
-        };
-      }));
+          
+        if (!messagesError && messages && messages.length > 0) {
+          conversation.lastMessage = messages[0] as Message;
+        }
+      }
       
-      return conversationsWithLastMessage;
+      // Sort by most recent messages or creation date
+      return allConversations.sort((a, b) => {
+        const aDate = a.lastMessage ? new Date(a.lastMessage.sent_at) : new Date(a.updated_at);
+        const bDate = b.lastMessage ? new Date(b.lastMessage.sent_at) : new Date(b.updated_at);
+        return bDate.getTime() - aDate.getTime();
+      });
     },
-    enabled: !!user
+    enabled: !!user,
+    staleTime: 1000 * 60 // 1 minute
   });
 
-  // Send message mutation
-  const sendMessage = useMutation({
-    mutationFn: async ({ swapRequestId, content }: { swapRequestId: string, content: string }) => {
-      if (!user) throw new Error('You must be logged in to send messages');
+  // Get messages for a specific conversation
+  const { data: messages, isLoading } = useQuery({
+    queryKey: ['messages', activeConversationId],
+    queryFn: async () => {
+      if (!user || !activeConversationId) return [];
       
       const { data, error } = await supabase
         .from('messages')
-        .insert({
-          swap_request_id: swapRequestId,
-          content,
-          sender_id: user.id,
-          sent_at: new Date().toISOString()
-        })
         .select(`
           *,
           sender:profiles!messages_sender_id_fkey(username, avatar_url)
         `)
-        .single();
+        .eq('swap_request_id', activeConversationId)
+        .order('sent_at', { ascending: true });
+        
+      if (error) throw error;
+      return data as Message[];
+    },
+    enabled: !!user && !!activeConversationId
+  });
+  
+  // Set up real-time subscription for messages
+  useEffect(() => {
+    if (!activeConversationId || !user) return;
+    
+    // Subscribe to new messages
+    const channel = supabase
+      .channel('messages-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `swap_request_id=eq.${activeConversationId}`
+        },
+        (payload) => {
+          // Update the messages query data with the new message
+          queryClient.setQueryData(['messages', activeConversationId], (oldData: Message[] = []) => {
+            // Check if the message is already in the array to avoid duplicates
+            if (oldData.some(msg => msg.id === payload.new.id)) {
+              return oldData;
+            }
+            
+            // Add the new message to the array
+            return [...oldData, payload.new as Message];
+          });
+          
+          // Update conversations list to show latest message
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        }
+      )
+      .subscribe();
+      
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeConversationId, user, queryClient]);
 
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ content, swapRequestId }: { content: string, swapRequestId: string }) => {
+      if (!user) throw new Error('You must be logged in to send a message');
+      
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          content,
+          swap_request_id: swapRequestId,
+          sender_id: user.id
+        })
+        .select()
+        .single();
+        
       if (error) throw error;
       return data;
     },
-    onSuccess: (newMessage) => {
-      // Only invalidate if not handled by realtime
-      if (!newMessages.some(msg => msg.id === newMessage.id)) {
-        queryClient.invalidateQueries({ queryKey: ['messages', newMessage.swap_request_id] });
-        queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      }
-    },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
         description: `Failed to send message: ${error.message}`,
@@ -134,72 +222,12 @@ export function useMessages(swapRequestId?: string) {
     }
   });
 
-  // Set up realtime subscription
-  useEffect(() => {
-    if (!user) return;
-    
-    const channel = supabase
-      .channel('messages_realtime')
-      .on('postgres_changes', 
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'messages',
-          filter: swapRequestId ? `swap_request_id=eq.${swapRequestId}` : undefined
-        },
-        async (payload) => {
-          console.log('New message received:', payload);
-          
-          // If it's a new message and not sent by the current user
-          if (payload.new && payload.new.sender_id !== user.id) {
-            // Get full message data with sender info
-            const { data } = await supabase
-              .from('messages')
-              .select(`
-                *,
-                sender:profiles!messages_sender_id_fkey(username, avatar_url)
-              `)
-              .eq('id', payload.new.id)
-              .single();
-              
-            if (data) {
-              setNewMessages(prev => [...prev, data]);
-              
-              // Update queries
-              queryClient.invalidateQueries({ queryKey: ['messages', data.swap_request_id] });
-              queryClient.invalidateQueries({ queryKey: ['conversations'] });
-              
-              // Notify user
-              toast({
-                title: 'New message',
-                description: `${data.sender?.username || 'Someone'} sent you a message`
-              });
-            }
-          }
-        }
-      )
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, swapRequestId, queryClient, toast]);
-
-  // Merge realtime messages with query data
-  const allMessages = [
-    ...(messages || []), 
-    ...newMessages.filter(newMsg => 
-      !messages?.some(existingMsg => existingMsg.id === newMsg.id)
-    )
-  ].sort((a, b) => new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime());
-
   return {
-    messages: allMessages,
     conversations,
+    messages,
     isLoading,
     isLoadingConversations,
-    error,
-    sendMessage: sendMessage.mutate,
-    isSending: sendMessage.isPending
+    sendMessage: sendMessageMutation.mutate,
+    isSending: sendMessageMutation.isPending,
   };
 }

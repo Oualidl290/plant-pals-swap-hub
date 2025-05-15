@@ -16,6 +16,7 @@ import PlantDetail from "./pages/PlantDetail";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
 import AddPlant from "./pages/AddPlant";
+import SwapsPage from "./pages/SwapsPage";
 import { useState } from "react";
 
 function App() {
@@ -57,6 +58,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/swaps" 
+                element={
+                  <ProtectedRoute>
+                    <SwapsPage />
                   </ProtectedRoute>
                 } 
               />

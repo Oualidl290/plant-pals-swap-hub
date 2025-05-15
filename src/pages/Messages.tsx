@@ -21,11 +21,14 @@ import { cn } from "@/lib/utils";
 import { useMessages } from "@/hooks/useMessages";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
-import { SwapRequestWithDetails } from "@/types/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSearchParams } from "react-router-dom";
 
 export default function Messages() {
-  const [activeConversation, setActiveConversation] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const swapIdFromUrl = searchParams.get('swap');
+  
+  const [activeConversation, setActiveConversation] = useState<string | null>(swapIdFromUrl || null);
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const messageEndRef = useRef<HTMLDivElement>(null);
@@ -40,6 +43,13 @@ export default function Messages() {
     sendMessage,
     isSending
   } = useMessages(activeConversation);
+  
+  // Update URL when conversation changes
+  useEffect(() => {
+    if (activeConversation) {
+      setSearchParams({ swap: activeConversation });
+    }
+  }, [activeConversation, setSearchParams]);
   
   // Filter conversations based on search term
   const filteredConversations = (conversations || [])
