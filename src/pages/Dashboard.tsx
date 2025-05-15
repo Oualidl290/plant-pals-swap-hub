@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { PlantCard } from "@/components/PlantCard";
@@ -14,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { usePlants } from "@/hooks/usePlants";
-import { useSwapRequests } from "@/hooks/useSwapRequests";
+import { useSwapRequests, SwapRequestStatus } from "@/hooks/useSwapRequests";
 import { useMessages } from "@/hooks/useMessages";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -43,11 +42,16 @@ export default function Dashboard() {
   
   // Combine sent and received requests with proper type casting for TypeScript
   const allRequests = [
-    ...(sentRequests || []).map(req => ({ ...req, type: 'sent' } as EnhancedSwapRequest)),
-    ...(receivedRequests || []).map(req => ({ ...req, type: 'received' } as EnhancedSwapRequest))
+    ...(sentRequests?.map(req => ({ ...req, type: 'sent' } as EnhancedSwapRequest)) || []),
+    ...(receivedRequests?.map(req => ({ ...req, type: 'received' } as EnhancedSwapRequest)) || [])
   ].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
   
   const isLoading = isLoadingUserPlants || isLoadingSent || isLoadingReceived || isLoadingConversations;
+
+  // Handle swap request status update
+  const handleUpdateStatus = (requestId: string, newStatus: SwapRequestStatus) => {
+    updateSwapRequest({ id: requestId, status: newStatus });
+  };
   
   return (
     <div className="min-h-screen bg-plant-cream/50">
@@ -219,7 +223,7 @@ export default function Dashboard() {
                                 
                                 {request.type === 'sent' ? (
                                   <p className="text-sm text-plant-gray">
-                                    You requested from {request.plants.profiles?.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+                                    You requested from {request.plants?.profiles?.username || 'Unknown user'} • {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
                                   </p>
                                 ) : (
                                   <p className="text-sm text-plant-gray">
@@ -236,7 +240,7 @@ export default function Dashboard() {
                                     variant="outline" 
                                     size="sm"
                                     className="border-red-200 hover:bg-red-50"
-                                    onClick={() => updateSwapRequest({ id: request.id, status: 'declined' })}
+                                    onClick={() => handleUpdateStatus(request.id, 'declined')}
                                   >
                                     Decline
                                   </Button>
@@ -244,7 +248,7 @@ export default function Dashboard() {
                                     variant="outline" 
                                     size="sm"
                                     className="border-plant-mint hover:bg-plant-mint/10"
-                                    onClick={() => updateSwapRequest({ id: request.id, status: 'accepted' })}
+                                    onClick={() => handleUpdateStatus(request.id, 'accepted')}
                                   >
                                     Accept
                                   </Button>
@@ -256,7 +260,7 @@ export default function Dashboard() {
                                   variant="outline" 
                                   size="sm"
                                   className="border-red-200 hover:bg-red-50"
-                                  onClick={() => updateSwapRequest({ id: request.id, status: 'canceled' })}
+                                  onClick={() => handleUpdateStatus(request.id, 'canceled')}
                                 >
                                   Cancel
                                 </Button>
@@ -267,7 +271,7 @@ export default function Dashboard() {
                                   variant="outline" 
                                   size="sm"
                                   className="border-plant-mint hover:bg-plant-mint/10"
-                                  onClick={() => updateSwapRequest({ id: request.id, status: 'completed' })}
+                                  onClick={() => handleUpdateStatus(request.id, 'completed')}
                                 >
                                   Mark Completed
                                 </Button>

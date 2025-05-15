@@ -88,10 +88,11 @@ export function useSwapRequests() {
       queryClient.invalidateQueries({ queryKey: ['sent-swap-requests'] });
       toast({
         title: 'Request sent',
-        description: 'Your swap request has been sent!'
+        description: 'Your swap request has been sent!',
+        variant: 'default'
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
         description: `Failed to send request: ${error.message}`,
@@ -126,10 +127,11 @@ export function useSwapRequests() {
       
       toast({
         title: 'Status updated',
-        description: statusMessages[data.status as keyof typeof statusMessages] || 'Request status updated'
+        description: statusMessages[data.status as keyof typeof statusMessages] || 'Request status updated',
+        variant: 'default'
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
         description: `Failed to update request: ${error.message}`,
