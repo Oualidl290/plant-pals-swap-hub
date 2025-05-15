@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +10,7 @@ export interface PlantFormData {
   species?: string | null;
   description?: string | null;
   image_url?: string | null;
+  image_urls?: string[] | null;
   available_for_swap: boolean;
   difficulty?: string;
   sunlight?: string;

@@ -13,10 +13,11 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { PlantFormData } from "@/hooks/usePlants";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, X, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 interface PlantFormProps {
   initialData?: Partial<PlantFormData>;
@@ -27,12 +28,14 @@ interface PlantFormProps {
 export function PlantForm({ initialData, onSubmit, isSubmitting }: PlantFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const MAX_IMAGES = 4;
   
   const [formData, setFormData] = useState<PlantFormData>({
     name: initialData?.name || "",
     species: initialData?.species || "",
     description: initialData?.description || "",
     image_url: initialData?.image_url || null,
+    image_urls: initialData?.image_urls || [],
     difficulty: initialData?.difficulty || "moderate",
     sunlight: initialData?.sunlight || "indirect",
     watering_frequency: initialData?.watering_frequency || "weekly",
@@ -44,7 +47,7 @@ export function PlantForm({ initialData, onSubmit, isSubmitting }: PlantFormProp
   });
 
   const [isUploading, setIsUploading] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Handle form field changes
   const handleChange = (field: keyof PlantFormData, value: any) => {
@@ -58,6 +61,7 @@ export function PlantForm({ initialData, onSubmit, isSubmitting }: PlantFormProp
 
     try {
       setIsUploading(true);
+      setUploadProgress(0);
       
       // Create a unique filename
       const fileExt = file.name.split(".").pop();
@@ -67,7 +71,12 @@ export function PlantForm({ initialData, onSubmit, isSubmitting }: PlantFormProp
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("plants")
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          onUploadProgress: (progress) => {
+            const percent = (progress.loaded / progress.total) * 100;
+            setUploadProgress(Math.floor(percent));
+          }
+        });
         
       if (uploadError) throw uploadError;
       
@@ -76,9 +85,18 @@ export function PlantForm({ initialData, onSubmit, isSubmitting }: PlantFormProp
         .from("plants")
         .getPublicUrl(filePath);
       
-      // Update form data and preview
-      setFormData(prev => ({ ...prev, image_url: publicUrl.publicUrl }));
-      setImagePreview(publicUrl.publicUrl);
+      // Update form data with the new image URL
+      const currentImages = [...(formData.image_urls || [])];
+      if (currentImages.length < MAX_IMAGES) {
+        const newImageUrls = [...currentImages, publicUrl.publicUrl];
+        
+        // Set the first image as main image_url for backwards compatibility
+        setFormData(prev => ({
+          ...prev,
+          image_urls: newImageUrls,
+          image_url: prev.image_url || publicUrl.publicUrl // Only set if not already set
+        }));
+      }
       
       toast({
         title: "Image uploaded",
@@ -92,7 +110,21 @@ export function PlantForm({ initialData, onSubmit, isSubmitting }: PlantFormProp
       });
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
+  };
+  
+  // Remove an image from the collection
+  const handleRemoveImage = (indexToRemove: number) => {
+    const currentImages = [...(formData.image_urls || [])];
+    const newImageUrls = currentImages.filter((_, index) => index !== indexToRemove);
+    
+    setFormData(prev => ({
+      ...prev,
+      image_urls: newImageUrls,
+      // If removing the main image, set the new main image to the first remaining one, or null if none
+      image_url: indexToRemove === 0 ? (newImageUrls[0] || null) : prev.image_url
+    }));
   };
 
   // Handle form submission
@@ -100,6 +132,10 @@ export function PlantForm({ initialData, onSubmit, isSubmitting }: PlantFormProp
     e.preventDefault();
     onSubmit(formData);
   };
+
+  // Get current images to display
+  const displayImages = formData.image_urls?.length ? formData.image_urls : 
+                       (formData.image_url ? [formData.image_url] : []);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -139,61 +175,67 @@ export function PlantForm({ initialData, onSubmit, isSubmitting }: PlantFormProp
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="image">Plant Image</Label>
-            <div className="border border-dashed border-plant-mint/50 rounded-lg p-4">
-              <input
-                id="image"
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              
-              {imagePreview ? (
-                <div className="space-y-2">
-                  <div className="aspect-square w-full rounded-md overflow-hidden">
+            <Label>Plant Images (up to 4)</Label>
+            
+            <div className="grid grid-cols-2 gap-3">
+              {/* Display existing images with remove button */}
+              {displayImages.map((imageUrl, index) => (
+                <div key={index} className="relative border border-plant-mint/50 rounded-lg overflow-hidden">
+                  <AspectRatio ratio={1/1}>
                     <img
-                      src={imagePreview}
-                      alt="Plant preview"
+                      src={imageUrl}
+                      alt={`Plant image ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
-                  </div>
+                  </AspectRatio>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-1 right-1 h-6 w-6"
+                    onClick={() => handleRemoveImage(index)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                  {index === 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-plant-dark-green/70 text-white text-xs py-1 text-center">
+                      Main Image
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {/* Upload button */}
+              {displayImages.length < MAX_IMAGES && (
+                <div className="border border-dashed border-plant-mint/50 rounded-lg p-4">
+                  <input
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={isUploading}
+                  />
                   
-                  <label htmlFor="image">
-                    <Button 
-                      type="button"
-                      variant="outline" 
-                      className="w-full"
-                      disabled={isUploading}
-                    >
-                      {isUploading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="mr-2 h-4 w-4" />
-                          Change Image
-                        </>
-                      )}
-                    </Button>
+                  <label 
+                    htmlFor="image" 
+                    className="flex flex-col items-center justify-center h-full cursor-pointer"
+                  >
+                    {isUploading ? (
+                      <div className="flex flex-col items-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green mb-2" />
+                        <span className="text-xs text-plant-gray">{uploadProgress}%</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Plus className="h-8 w-8 text-plant-gray mb-1" />
+                        <span className="text-xs text-center text-plant-gray">
+                          Add Image ({displayImages.length}/{MAX_IMAGES})
+                        </span>
+                      </>
+                    )}
                   </label>
                 </div>
-              ) : (
-                <label htmlFor="image" className="flex flex-col items-center justify-center h-48 cursor-pointer">
-                  {isUploading ? (
-                    <div className="flex flex-col items-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green mb-2" />
-                      <span className="text-sm text-plant-gray">Uploading image...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 text-plant-gray mb-2" />
-                      <span className="text-sm text-plant-gray">Click to upload image</span>
-                    </>
-                  )}
-                </label>
               )}
             </div>
           </div>

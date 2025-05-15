@@ -86,6 +86,7 @@ export type Database = {
           difficulty: string | null
           id: string
           image_url: string | null
+          image_urls: string[] | null
           location: string | null
           name: string
           owner_id: string
@@ -104,6 +105,7 @@ export type Database = {
           difficulty?: string | null
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           location?: string | null
           name: string
           owner_id: string
@@ -122,6 +124,7 @@ export type Database = {
           difficulty?: string | null
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           location?: string | null
           name?: string
           owner_id?: string
