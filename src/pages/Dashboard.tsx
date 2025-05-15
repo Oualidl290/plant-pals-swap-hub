@@ -21,6 +21,11 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SwapRequestWithDetails } from "@/types/supabase";
 
+// Create a more flexible interface for our combined requests
+interface EnhancedSwapRequest extends SwapRequestWithDetails {
+  type: 'sent' | 'received';
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("plants");
@@ -36,10 +41,10 @@ export default function Dashboard() {
     new Date(conv.lastMessage.sent_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
   ).length || 0;
   
-  // Combine sent and received requests with type annotation
+  // Combine sent and received requests with proper type casting for TypeScript
   const allRequests = [
-    ...(sentRequests || []).map(req => ({ ...req, type: 'sent' } as SwapRequestWithDetails)),
-    ...(receivedRequests || []).map(req => ({ ...req, type: 'received' } as SwapRequestWithDetails))
+    ...(sentRequests || []).map(req => ({ ...req, type: 'sent' } as EnhancedSwapRequest)),
+    ...(receivedRequests || []).map(req => ({ ...req, type: 'received' } as EnhancedSwapRequest))
   ].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
   
   const isLoading = isLoadingUserPlants || isLoadingSent || isLoadingReceived || isLoadingConversations;

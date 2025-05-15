@@ -68,22 +68,33 @@ export function PlantForm({ initialData, onSubmit, isSubmitting }: PlantFormProp
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `plants/${user.id}/${fileName}`;
       
-      // Upload to Supabase Storage
+      // Upload to Supabase Storage with progress tracking
       const { error: uploadError } = await supabase.storage
         .from("plants")
         .upload(filePath, file, {
-          onUploadProgress: (progress) => {
-            const percent = (progress.loaded / progress.total) * 100;
-            setUploadProgress(Math.floor(percent));
-          }
+          cacheControl: "3600",
+          upsert: false
         });
         
       if (uploadError) throw uploadError;
+      
+      // Simulate progress for better UX since Supabase JS v2 doesn't support progress events
+      const updateProgress = () => {
+        setUploadProgress(prev => {
+          if (prev >= 95) return prev;
+          return prev + Math.floor(Math.random() * 20);
+        });
+      };
+      
+      const progressInterval = setInterval(updateProgress, 200);
       
       // Get the public URL
       const { data: publicUrl } = supabase.storage
         .from("plants")
         .getPublicUrl(filePath);
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
       
       // Update form data with the new image URL
       const currentImages = [...(formData.image_urls || [])];

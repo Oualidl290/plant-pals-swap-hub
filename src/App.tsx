@@ -16,92 +16,96 @@ import PlantDetail from "./pages/PlantDetail";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
 import AddPlant from "./pages/AddPlant";
+import { useState } from "react";
 
-const queryClient = new QueryClient();
+function App() {
+  // Create a new QueryClient instance within the component
+  const [queryClient] = useState(() => new QueryClient());
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            
-            {/* Auth route - not accessible when logged in */}
-            <Route 
-              path="/auth" 
-              element={
-                <ProtectedRoute requireAuth={false}>
-                  <Auth />
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Protected routes - require authentication */}
-            <Route 
-              path="/onboarding" 
-              element={
-                <ProtectedRoute>
-                  <Onboarding />
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/add-plant" 
-              element={
-                <ProtectedRoute>
-                  <AddPlant />
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/edit-plant/:id" 
-              element={
-                <ProtectedRoute>
-                  <AddPlant />
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route path="/plants" element={<Plants />} />
-            <Route path="/plants/:id" element={<PlantDetail />} />
-            
-            <Route 
-              path="/profile/:username" 
-              element={
-                <UserProfile />
-              } 
-            />
-            
-            <Route 
-              path="/messages" 
-              element={
-                <ProtectedRoute>
-                  <Messages />
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              
+              {/* Auth route - not accessible when logged in */}
+              <Route 
+                path="/auth" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <Auth />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Protected routes - require authentication */}
+              <Route 
+                path="/onboarding" 
+                element={
+                  <ProtectedRoute>
+                    <Onboarding />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/add-plant" 
+                element={
+                  <ProtectedRoute>
+                    <AddPlant />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/edit-plant/:id" 
+                element={
+                  <ProtectedRoute>
+                    <AddPlant />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route path="/plants" element={<Plants />} />
+              <Route path="/plants/:id" element={<PlantDetail />} />
+              
+              <Route 
+                path="/profile/:username" 
+                element={
+                  <UserProfile />
+                } 
+              />
+              
+              <Route 
+                path="/messages" 
+                element={
+                  <ProtectedRoute>
+                    <Messages />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
