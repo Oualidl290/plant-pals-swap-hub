@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -13,11 +12,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SwapRequestWithDetails } from "@/types/supabase";
 
 export default function SwapsPage() {
+  // Change the type here to include 'all'
   const [activeTab, setActiveTab] = useState<string>("all");
   const { sentRequests, receivedRequests, updateSwapRequest, isUpdating, isLoadingSent, isLoadingReceived } = useSwapRequests();
   
   // Filter requests based on active tab
-  const filterRequests = (requests: SwapRequestWithDetails[] = [], status?: SwapRequestStatus) => {
+  const filterRequests = (requests: SwapRequestWithDetails[] = [], status?: string) => {
     if (!status || status === "all") return requests;
     return requests.filter(request => request.status === status);
   };
@@ -47,7 +47,7 @@ export default function SwapsPage() {
   ].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
   
   // Filter based on active tab
-  const filteredRequests = filterRequests(allRequests, activeTab as SwapRequestStatus);
+  const filteredRequests = filterRequests(allRequests, activeTab);
   
   const isLoading = isLoadingSent || isLoadingReceived;
   

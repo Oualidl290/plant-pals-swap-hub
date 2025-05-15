@@ -42,10 +42,12 @@ export function useMessages(activeConversationId?: string | null) {
   // Extract swap request ID from URL if provided
   const swapIdFromUrl = searchParams.get('swap');
   
-  // Effect to set the active conversation from URL parameter
+  // Effect to handle URL swap parameter
   useEffect(() => {
-    if (swapIdFromUrl && typeof onConversationSelect === 'function') {
-      onConversationSelect(swapIdFromUrl);
+    if (swapIdFromUrl) {
+      // We don't need to call anything here as the component using this hook
+      // will handle setting the active conversation based on the swapIdFromUrl
+      console.log("Swap ID from URL:", swapIdFromUrl);
     }
   }, [swapIdFromUrl]);
 
@@ -89,8 +91,9 @@ export function useMessages(activeConversationId?: string | null) {
           created_at: req.created_at,
           updated_at: req.updated_at,
           otherUser: {
-            username: req.plants?.profiles?.username,
-            avatar_url: req.plants?.profiles?.avatar_url
+            // Access owner info from plants relation
+            username: req.plants?.owner?.username || req.profiles?.username,
+            avatar_url: req.plants?.owner?.avatar_url || req.profiles?.avatar_url
           }
         })) || []),
         ...(receivedRequests?.map(req => ({

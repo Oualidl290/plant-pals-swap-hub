@@ -1,10 +1,9 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
-export type SwapRequestStatus = 'pending' | 'accepted' | 'declined' | 'completed' | 'canceled';
+export type SwapRequestStatus = 'all' | 'pending' | 'accepted' | 'declined' | 'completed' | 'canceled';
 
 export interface SwapRequest {
   id: string;
