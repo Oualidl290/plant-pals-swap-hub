@@ -11,222 +11,83 @@ import {
   Image,
   Smile,
   Paperclip,
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
-// Sample data - will be replaced with actual data from Supabase
-const conversationsData = [
-  {
-    id: 1,
-    person: {
-      id: "user1",
-      name: "Michael Chen",
-      avatar: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?q=80&w=3540&auto=format&fit=crop",
-      online: true,
-      lastSeen: null
-    },
-    lastMessage: {
-      text: "Is your monstera still available for swap?",
-      time: "10:45 AM",
-      unread: true,
-      fromMe: false
-    }
-  },
-  {
-    id: 2,
-    person: {
-      id: "user2",
-      name: "Emma Wilson",
-      avatar: "https://images.unsplash.com/photo-1664575602554-2087b04935a5?q=80&w=3540&auto=format&fit=crop",
-      online: false,
-      lastSeen: "2 hours ago"
-    },
-    lastMessage: {
-      text: "Thanks for the plant care tips!",
-      time: "Yesterday",
-      unread: false,
-      fromMe: true
-    }
-  },
-  {
-    id: 3,
-    person: {
-      id: "user3",
-      name: "David Park",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3540&auto=format&fit=crop",
-      online: true,
-      lastSeen: null
-    },
-    lastMessage: {
-      text: "Let's meet this weekend for the plant swap",
-      time: "Wed",
-      unread: false,
-      fromMe: false
-    }
-  },
-  {
-    id: 4,
-    person: {
-      id: "user4",
-      name: "Lisa Gomez",
-      avatar: "https://images.unsplash.com/photo-1499887142886-791eca5918cd?q=80&w=3540&auto=format&fit=crop",
-      online: false,
-      lastSeen: "Yesterday"
-    },
-    lastMessage: {
-      text: "I'll bring the pothos and philodendron.",
-      time: "Mon",
-      unread: false,
-      fromMe: false
-    }
-  }
-];
-
-// Sample message data
-const messageThreads = {
-  1: [
-    {
-      id: 1,
-      text: "Hi there! I noticed you have a monstera for swap.",
-      time: "10:30 AM",
-      sender: "user1",
-      status: "read"
-    },
-    {
-      id: 2,
-      text: "Yes, I do! It's a healthy cutting with aerial roots.",
-      time: "10:32 AM",
-      sender: "me",
-      status: "read"
-    },
-    {
-      id: 3,
-      text: "Is it still available for swap?",
-      time: "10:45 AM",
-      sender: "user1",
-      status: "delivered"
-    }
-  ],
-  2: [
-    {
-      id: 1,
-      text: "Hey! How do I care for a snake plant?",
-      time: "Yesterday 3:15 PM",
-      sender: "user2",
-      status: "read"
-    },
-    {
-      id: 2,
-      text: "Snake plants are super easy! They need very little water - once every 2-3 weeks. They can handle low light but prefer bright indirect light.",
-      time: "Yesterday 3:20 PM",
-      sender: "me",
-      status: "read"
-    },
-    {
-      id: 3,
-      text: "Thanks for the plant care tips!",
-      time: "Yesterday 3:45 PM",
-      sender: "user2",
-      status: "read"
-    }
-  ]
-};
+import { useMessages } from "@/hooks/useMessages";
+import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+import { SwapRequestWithDetails } from "@/types/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Messages() {
-  const [activeConversation, setActiveConversation] = useState<number | null>(null);
-  const [conversations, setConversations] = useState(conversationsData);
+  const [activeConversation, setActiveConversation] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [newMessage, setNewMessage] = useState("");
-  const [messageList, setMessageList] = useState<any[]>([]);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const { 
+    conversations, 
+    messages, 
+    isLoading, 
+    isLoadingConversations, 
+    sendMessage,
+    isSending
+  } = useMessages(activeConversation);
   
   // Filter conversations based on search term
-  const filteredConversations = conversations.filter(conv => 
-    conv.person.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
-  // Load messages when conversation changes
-  useEffect(() => {
-    if (activeConversation) {
-      setMessageList(messageThreads[activeConversation as keyof typeof messageThreads] || []);
-      
-      // Mark conversation as read
-      setConversations(prev => 
-        prev.map(conv => 
-          conv.id === activeConversation 
-            ? { ...conv, lastMessage: { ...conv.lastMessage, unread: false } }
-            : conv
-        )
-      );
-    }
-  }, [activeConversation]);
+  const filteredConversations = (conversations || [])
+    .filter(conv => {
+      const otherUsername = conv.otherUser?.username || '';
+      return otherUsername.toLowerCase().includes(searchTerm.toLowerCase());
+    });
   
   // Scroll to bottom on new messages
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messageList]);
+  }, [messages]);
   
   const handleSendMessage = () => {
     if (!newMessage.trim() || !activeConversation) return;
     
-    const newMsg = {
-      id: messageList.length + 1,
-      text: newMessage,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      sender: "me",
-      status: "sending"
-    };
+    sendMessage({
+      content: newMessage,
+      swapRequestId: activeConversation
+    });
     
-    // Add message to thread
-    setMessageList(prev => [...prev, newMsg]);
     setNewMessage("");
-    
-    // Simulate sending message
-    setTimeout(() => {
-      // Update message status
-      setMessageList(prev => 
-        prev.map(msg => 
-          msg.id === newMsg.id ? { ...msg, status: "sent" } : msg
-        )
-      );
-      
-      // Update conversation last message
-      setConversations(prev => 
-        prev.map(conv => 
-          conv.id === activeConversation 
-            ? { 
-                ...conv, 
-                lastMessage: { 
-                  text: newMessage, 
-                  time: "Just now", 
-                  unread: false, 
-                  fromMe: true 
-                } 
-              }
-            : conv
-        )
-      );
-    }, 500);
-    
-    // Simulate received
-    setTimeout(() => {
-      setMessageList(prev => 
-        prev.map(msg => 
-          msg.id === newMsg.id ? { ...msg, status: "delivered" } : msg
-        )
-      );
-    }, 1500);
   };
   
-  // Get active person
-  const activePerson = activeConversation 
-    ? conversations.find(c => c.id === activeConversation)?.person
+  // Format date helper function
+  const formatMessageDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    
+    if (date.toDateString() === today.toDateString()) {
+      return format(date, "h:mm a");
+    } else if (date.getFullYear() === today.getFullYear()) {
+      return format(date, "MMM d, h:mm a");
+    } else {
+      return format(date, "MMM d, yyyy");
+    }
+  };
+  
+  // Get active conversation details
+  const activeConversationDetails = activeConversation 
+    ? conversations?.find(c => c.id === activeConversation)
     : null;
+    
+  // Get the other user in the conversation
+  const otherUser = activeConversationDetails?.otherUser;
+
+  // Get the plant involved in the swap
+  const plant = activeConversationDetails?.plants;
 
   return (
     <div className="min-h-screen bg-plant-cream/50">
@@ -251,82 +112,102 @@ export default function Messages() {
               </div>
               
               <ScrollArea className="flex-1 h-full">
-                <div className="divide-y divide-plant-mint/30">
-                  {filteredConversations.map(conversation => (
-                    <button
-                      key={conversation.id}
-                      className={cn(
-                        "w-full text-left hover:bg-plant-mint/5 p-4 transition-colors",
-                        activeConversation === conversation.id && "bg-plant-mint/10"
-                      )}
-                      onClick={() => setActiveConversation(conversation.id)}
-                    >
-                      <div className="flex gap-3">
-                        <div className="relative">
-                          <UserAvatar 
-                            src={conversation.person.avatar}
-                            fallback={conversation.person.name}
-                            className="h-12 w-12"
-                          />
-                          {conversation.person.online && (
-                            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-center">
-                            <h3 className="font-medium truncate">{conversation.person.name}</h3>
-                            <span className="text-xs text-plant-gray whitespace-nowrap">{conversation.lastMessage.time}</span>
-                          </div>
-                          <div className="flex justify-between items-center mt-1">
-                            <p className={`text-sm truncate ${
-                              conversation.lastMessage.unread && !conversation.lastMessage.fromMe
-                                ? "text-plant-dark-green font-medium"
-                                : "text-plant-gray"
-                            }`}>
-                              {conversation.lastMessage.fromMe && "You: "}
-                              {conversation.lastMessage.text}
-                            </p>
-                            {conversation.lastMessage.unread && !conversation.lastMessage.fromMe && (
-                              <span className="h-2 w-2 rounded-full bg-plant-dark-green"></span>
-                            )}
+                {isLoadingConversations ? (
+                  <div className="divide-y divide-plant-mint/30">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="p-4">
+                        <div className="flex gap-3">
+                          <Skeleton className="h-12 w-12 rounded-full" />
+                          <div className="flex-1">
+                            <Skeleton className="h-4 w-28 mb-2" />
+                            <Skeleton className="h-3 w-40" />
                           </div>
                         </div>
                       </div>
-                    </button>
-                  ))}
-                  
-                  {filteredConversations.length === 0 && (
-                    <div className="p-6 text-center text-plant-gray">
-                      No conversations found
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-plant-mint/30">
+                    {filteredConversations.length > 0 ? filteredConversations.map(conversation => {
+                      const isActive = activeConversation === conversation.id;
+                      const hasUnread = conversation.lastMessage && 
+                        conversation.lastMessage.sender_id !== user?.id && 
+                        !conversation.lastMessage.read;
+                      
+                      return (
+                        <button
+                          key={conversation.id}
+                          className={cn(
+                            "w-full text-left hover:bg-plant-mint/5 p-4 transition-colors",
+                            isActive && "bg-plant-mint/10"
+                          )}
+                          onClick={() => setActiveConversation(conversation.id)}
+                        >
+                          <div className="flex gap-3">
+                            <div className="relative">
+                              <UserAvatar 
+                                src={conversation.otherUser?.avatar_url || undefined}
+                                fallback={conversation.otherUser?.username || "User"}
+                                className="h-12 w-12"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center">
+                                <h3 className="font-medium truncate">{conversation.otherUser?.username || "User"}</h3>
+                                <span className="text-xs text-plant-gray whitespace-nowrap">
+                                  {conversation.lastMessage ? formatMessageDate(conversation.lastMessage.sent_at) : formatMessageDate(conversation.updated_at)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center mt-1">
+                                <p className={`text-sm truncate ${
+                                  hasUnread ? "text-plant-dark-green font-medium" : "text-plant-gray"
+                                }`}>
+                                  {conversation.lastMessage ? (
+                                    <>
+                                      {conversation.lastMessage.sender_id === user?.id && "You: "}
+                                      {conversation.lastMessage.content}
+                                    </>
+                                  ) : (
+                                    <>Plant: {conversation.plants.name}</>
+                                  )}
+                                </p>
+                                {hasUnread && (
+                                  <span className="h-2 w-2 rounded-full bg-plant-dark-green"></span>
+                                )}
+                              </div>
+                              <p className="text-xs text-plant-gray mt-1 truncate">
+                                Plant: {conversation.plants.name} | Status: {conversation.status}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    }) : (
+                      <div className="p-6 text-center text-plant-gray">
+                        {searchTerm ? 'No conversations found' : 'No conversations yet'}
+                      </div>
+                    )}
+                  </div>
+                )}
               </ScrollArea>
             </div>
             
             {/* Message thread */}
             <div className="md:col-span-2 flex flex-col h-full">
-              {activeConversation ? (
+              {activeConversation && otherUser ? (
                 <>
                   {/* Chat header */}
                   <div className="p-3 border-b border-plant-mint/30 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <UserAvatar 
-                        src={activePerson?.avatar}
-                        fallback={activePerson?.name || ""}
+                        src={otherUser?.avatar_url || undefined}
+                        fallback={otherUser?.username || ""}
                         className="h-10 w-10"
                       />
                       <div>
-                        <h2 className="font-medium">{activePerson?.name}</h2>
+                        <h2 className="font-medium">{otherUser?.username}</h2>
                         <p className="text-xs text-plant-gray">
-                          {activePerson?.online ? (
-                            <span className="flex items-center">
-                              <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1"></span>
-                              Online
-                            </span>
-                          ) : (
-                            `Last seen ${activePerson?.lastSeen}`
-                          )}
+                          About: {plant?.name}
                         </p>
                       </div>
                     </div>
@@ -342,47 +223,51 @@ export default function Messages() {
                   
                   {/* Messages area */}
                   <ScrollArea className="flex-1 p-4">
-                    <div className="space-y-4">
-                      {messageList.map((message) => (
-                        <div 
-                          key={message.id} 
-                          className={cn(
-                            "flex",
-                            message.sender === "me" ? "justify-end" : "justify-start"
-                          )}
-                        >
-                          <div className="flex flex-col max-w-[80%]">
+                    {isLoading ? (
+                      <div className="flex items-center justify-center h-full">
+                        <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green" />
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {messages && messages.length > 0 ? (
+                          messages.map((message) => (
                             <div 
+                              key={message.id} 
                               className={cn(
-                                "rounded-2xl px-4 py-2",
-                                message.sender === "me" 
-                                  ? "bg-plant-dark-green text-white rounded-br-sm" 
-                                  : "bg-plant-mint/20 text-plant-dark rounded-bl-sm"
+                                "flex",
+                                message.sender_id === user?.id ? "justify-end" : "justify-start"
                               )}
                             >
-                              {message.text}
+                              <div className="flex flex-col max-w-[80%]">
+                                <div 
+                                  className={cn(
+                                    "rounded-2xl px-4 py-2",
+                                    message.sender_id === user?.id 
+                                      ? "bg-plant-dark-green text-white rounded-br-sm" 
+                                      : "bg-plant-mint/20 text-plant-dark rounded-bl-sm"
+                                  )}
+                                >
+                                  {message.content}
+                                </div>
+                                <div 
+                                  className={cn(
+                                    "flex items-center text-xs mt-1 text-plant-gray",
+                                    message.sender_id === user?.id ? "justify-end" : "justify-start"
+                                  )}
+                                >
+                                  {formatMessageDate(message.sent_at)}
+                                </div>
+                              </div>
                             </div>
-                            <div 
-                              className={cn(
-                                "flex items-center text-xs mt-1 text-plant-gray",
-                                message.sender === "me" ? "justify-end" : "justify-start"
-                              )}
-                            >
-                              {message.time}
-                              {message.sender === "me" && (
-                                <span className="ml-1">
-                                  {message.status === "sending" && "• Sending..."}
-                                  {message.status === "sent" && "• Sent"}
-                                  {message.status === "delivered" && "• Delivered"}
-                                  {message.status === "read" && "• Read"}
-                                </span>
-                              )}
-                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center text-plant-gray py-8">
+                            Start a conversation about {plant?.name}
                           </div>
-                        </div>
-                      ))}
-                      <div ref={messageEndRef} />
-                    </div>
+                        )}
+                        <div ref={messageEndRef} />
+                      </div>
+                    )}
                   </ScrollArea>
                   
                   {/* Message input */}
@@ -412,9 +297,13 @@ export default function Messages() {
                       <Button 
                         className="bg-plant-dark-green hover:bg-plant-dark-green/90 rounded-full h-10 w-10 p-0"
                         onClick={handleSendMessage}
-                        disabled={!newMessage.trim()}
+                        disabled={!newMessage.trim() || isSending}
                       >
-                        <Send className="h-5 w-5" />
+                        {isSending ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Send className="h-5 w-5" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -428,6 +317,12 @@ export default function Messages() {
                   <p className="text-plant-gray mb-6">
                     Select a conversation from the list to view messages
                   </p>
+                  {!isLoadingConversations && filteredConversations.length === 0 && (
+                    <p className="text-plant-gray">
+                      You don't have any conversations yet. <br />
+                      Browse plants and request a swap to start chatting!
+                    </p>
+                  )}
                 </div>
               )}
             </div>
