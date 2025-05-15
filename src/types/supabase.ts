@@ -1,3 +1,4 @@
+
 // Extended types for Supabase tables that include our custom columns
 
 export interface PlantWithDetails {
@@ -80,5 +81,17 @@ export interface SwapRequestWithDetails {
   profiles?: any;
   requester?: any;
   // The properties below should be optional
-  type?: 'sent' | 'received'; 
+  type?: 'sent' | 'received';
+  lastMessage?: {
+    id: string;
+    content: string;
+    sender_id: string;
+    swap_request_id: string;
+    sent_at: string;
+    read?: boolean;
+    sender?: {
+      username: string | null;
+      avatar_url: string | null;
+    };
+  };
 }

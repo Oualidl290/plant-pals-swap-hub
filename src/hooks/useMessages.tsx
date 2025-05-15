@@ -11,6 +11,7 @@ export interface Message {
   sender_id: string;
   swap_request_id: string;
   sent_at: string;
+  read?: boolean;
   sender?: {
     username: string;
     avatar_url: string | null;

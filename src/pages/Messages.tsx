@@ -132,7 +132,7 @@ export default function Messages() {
                       const isActive = activeConversation === conversation.id;
                       const hasUnread = conversation.lastMessage && 
                         conversation.lastMessage.sender_id !== user?.id && 
-                        !conversation.lastMessage.read;
+                        conversation.lastMessage.read === false;
                       
                       return (
                         <button
