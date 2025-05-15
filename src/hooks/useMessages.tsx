@@ -91,9 +91,9 @@ export function useMessages(activeConversationId?: string | null) {
           created_at: req.created_at,
           updated_at: req.updated_at,
           otherUser: {
-            // Access owner info from plants relation
-            username: req.plants?.owner?.username || req.profiles?.username,
-            avatar_url: req.plants?.owner?.avatar_url || req.profiles?.avatar_url
+            // Get owner info from the profiles relation since we can't directly access owner
+            username: req.profiles?.username,
+            avatar_url: req.profiles?.avatar_url
           }
         })) || []),
         ...(receivedRequests?.map(req => ({
