@@ -29,9 +29,11 @@ function App() {
         refetchOnWindowFocus: false,
         retry: 1,
         staleTime: 30000,
-        // Add more robust error handling
-        onError: (error) => {
-          console.error('Query error:', error);
+        // Using the correct error handling approach for React Query v5+
+        meta: {
+          onError: (error: Error) => {
+            console.error('Query error:', error);
+          }
         }
       },
     },
