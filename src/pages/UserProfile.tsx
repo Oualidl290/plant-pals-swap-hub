@@ -1,8 +1,8 @@
 
-import { useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
 import { 
   ArrowLeft, 
   MessageSquare, 
@@ -12,111 +12,96 @@ import {
   PencilLine,
   Instagram,
   Twitter,
-  AtSign
+  AtSign,
+  Loader2
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { PlantCard } from "@/components/PlantCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Sample data - will be replaced with actual data from Supabase
-const userData = {
-  id: "user123",
-  username: "plantlover",
-  name: "Sarah Johnson",
-  avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=3540&auto=format&fit=crop",
-  bio: "Plant enthusiast and swap fanatic based in Portland. I love collecting aroids and helping new plant parents get started. Always looking to share plant joy and expand my collection!",
-  location: "Portland, OR",
-  memberSince: "Jan 2023",
-  completedSwaps: 15,
-  rating: 4.8,
-  reviewCount: 12, // Changed from reviews to reviewCount to avoid duplicate
-  social: {
-    instagram: "plantlover_sarah",
-    twitter: "sarahplants",
-    email: "sarah@example.com"
-  },
-  plants: [
-    {
-      id: 1,
-      name: "Monstera Deliciosa",
-      species: "Monstera",
-      image: "https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop",
-      distance: "Your plant",
-      owner: {
-        name: "Sarah Johnson",
-        avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=3540&auto=format&fit=crop"
-      },
-      sunlight: "Indirect",
-      wateringFrequency: "Weekly",
-      difficulty: "Easy"
-    },
-    {
-      id: 2,
-      name: "Snake Plant",
-      species: "Sansevieria",
-      image: "https://images.unsplash.com/photo-1593482892290-f54927ae2be2?q=80&w=3540&auto=format&fit=crop",
-      distance: "Your plant",
-      owner: {
-        name: "Sarah Johnson",
-        avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=3540&auto=format&fit=crop"
-      },
-      sunlight: "Low to bright",
-      wateringFrequency: "Every 2-3 weeks",
-      difficulty: "Very Easy"
-    },
-    {
-      id: 3,
-      name: "Fiddle Leaf Fig",
-      species: "Ficus lyrata",
-      image: "https://images.unsplash.com/photo-1597055181449-b9d2955f595c?q=80&w=3540&auto=format&fit=crop",
-      distance: "Your plant",
-      owner: {
-        name: "Sarah Johnson",
-        avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=3540&auto=format&fit=crop"
-      },
-      sunlight: "Bright indirect",
-      wateringFrequency: "Weekly",
-      difficulty: "Moderate"
-    }
-  ],
-  reviews: [
-    {
-      id: 1,
-      user: "Michael",
-      avatar: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?q=80&w=3540&auto=format&fit=crop",
-      rating: 5,
-      date: "2025-04-15",
-      text: "Sarah is amazing! The plant was exactly as described and she provided helpful care tips. Would swap again in a heartbeat."
-    },
-    {
-      id: 2,
-      user: "Emma",
-      avatar: "https://images.unsplash.com/photo-1664575602554-2087b04935a5?q=80&w=3540&auto=format&fit=crop",
-      rating: 5,
-      date: "2025-03-20",
-      text: "Great experience swapping with Sarah. The plant was healthy and she was very knowledgeable."
-    },
-    {
-      id: 3,
-      user: "David",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3540&auto=format&fit=crop",
-      rating: 4,
-      date: "2025-02-10",
-      text: "Smooth swap experience. Plant was in good condition, though a bit smaller than I expected."
-    }
-  ]
-};
+import { useProfile } from "@/hooks/useProfile";
+import { usePlants } from "@/hooks/usePlants";
+import { formatDistanceToNow } from 'date-fns';
 
 export default function UserProfile() {
   const { username } = useParams<{ username: string }>();
   const { user } = useAuth();
+  const { getProfileByUsername, profile, isLoading: isProfileLoading } = useProfile();
+  const { getPlantsForUser, isLoading: isPlantsLoading } = usePlants();
+  const [plants, setPlants] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Check if viewing own profile (we'd normally check user ID against profile ID)
-  const isOwnProfile = user?.user_metadata?.username === username || username === 'me';
+  // Check if viewing own profile
+  const isOwnProfile = user?.id === profile?.id || username === 'me';
   
-  // Use provided username or default to sample data
-  const profile = userData; // In real app, would fetch based on username
+  // Fetch profile data
+  useEffect(() => {
+    const loadProfile = async () => {
+      setIsLoading(true);
+      if (username === 'me' && user) {
+        await getProfileByUsername(user.user_metadata?.username || '');
+      } else if (username) {
+        await getProfileByUsername(username);
+      }
+      setIsLoading(false);
+    };
+    
+    loadProfile();
+  }, [username, user, getProfileByUsername]);
+  
+  // Fetch user's plants
+  useEffect(() => {
+    const loadPlants = async () => {
+      if (profile?.id) {
+        const userPlants = await getPlantsForUser(profile.id);
+        setPlants(userPlants || []);
+      }
+    };
+    
+    if (profile) {
+      loadPlants();
+    }
+  }, [profile, getPlantsForUser]);
+
+  // Render loading state
+  if (isLoading || isProfileLoading) {
+    return (
+      <div className="min-h-screen bg-plant-cream/50">
+        <Navbar />
+        <main className="container mx-auto px-4 py-6 md:py-10 flex justify-center items-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green mx-auto" />
+            <p className="mt-2 text-plant-gray">Loading profile...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+  
+  // Render not found state
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-plant-cream/50">
+        <Navbar />
+        <main className="container mx-auto px-4 py-6 md:py-10">
+          <div className="mb-6">
+            <Link to="/" className="text-plant-dark-green hover:underline flex items-center">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to home
+            </Link>
+          </div>
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
+            <p className="text-plant-gray">The user profile you're looking for doesn't exist or has been removed.</p>
+            <Link to="/">
+              <Button variant="link" className="text-plant-dark-green mt-4">Return to home</Button>
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-plant-cream/50">
@@ -136,8 +121,8 @@ export default function UserProfile() {
             {/* Avatar */}
             <div className="shrink-0">
               <UserAvatar 
-                src={profile.avatar} 
-                fallback={profile.name}
+                src={profile?.avatar_url} 
+                fallback={profile?.username || 'User'}
                 className="h-24 w-24 md:h-32 md:w-32"
               />
             </div>
@@ -146,29 +131,32 @@ export default function UserProfile() {
             <div className="flex-grow">
               <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
                 <div>
-                  <h1 className="text-3xl font-serif font-bold text-plant-dark-green">{profile.name}</h1>
-                  <p className="text-plant-gray">@{profile.username}</p>
+                  <h1 className="text-3xl font-serif font-bold text-plant-dark-green">{profile?.username}</h1>
+                  <p className="text-plant-gray">@{profile?.username}</p>
                 </div>
                 
                 <div className="mt-4 md:mt-0 space-x-3">
                   {isOwnProfile ? (
-                    <Button 
-                      variant="outline" 
-                      className="border-plant-mint/50"
-                      onClick={() => window.location.href = "/settings/profile"}
-                    >
-                      <PencilLine className="mr-2 h-4 w-4" />
-                      Edit Profile
-                    </Button>
-                  ) : (
-                    <>
+                    <Link to="/onboarding">
                       <Button 
-                        variant="outline"
+                        variant="outline" 
                         className="border-plant-mint/50"
                       >
-                        <MessageSquare className="mr-2 h-4 w-4" />
-                        Message
+                        <PencilLine className="mr-2 h-4 w-4" />
+                        Edit Profile
                       </Button>
+                    </Link>
+                  ) : (
+                    <>
+                      <Link to={`/messages?user=${profile.id}`}>
+                        <Button 
+                          variant="outline"
+                          className="border-plant-mint/50"
+                        >
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Message
+                        </Button>
+                      </Link>
                       <Button className="bg-plant-dark-green hover:bg-plant-dark-green/90">
                         Follow
                       </Button>
@@ -177,47 +165,23 @@ export default function UserProfile() {
                 </div>
               </div>
               
-              <p className="mb-4">{profile.bio}</p>
+              <p className="mb-4">{profile?.bio || "No bio available."}</p>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                <div className="flex items-center">
-                  <MapPin className="h-4 w-4 text-plant-gray mr-2" />
-                  <span>{profile.location}</span>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                {profile?.location && (
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 text-plant-gray mr-2" />
+                    <span>{profile.location}</span>
+                  </div>
+                )}
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 text-plant-gray mr-2" />
-                  <span>Member since {profile.memberSince}</span>
-                </div>
-                <div className="flex items-center">
-                  <Star className="h-4 w-4 text-plant-gold mr-2" />
-                  <span>{profile.rating} ({profile.reviews.length} reviews)</span>
+                  <span>Member since {formatDistanceToNow(new Date(profile?.created_at || new Date()), { addSuffix: true })}</span>
                 </div>
                 <div className="flex items-center">
                   <MessageSquare className="h-4 w-4 text-plant-gray mr-2" />
-                  <span>{profile.completedSwaps} swaps completed</span>
+                  <span>{plants?.length || 0} plants available</span>
                 </div>
-              </div>
-              
-              {/* Social links */}
-              <div className="flex gap-4 mt-4 text-plant-gray">
-                {profile.social.instagram && (
-                  <a href={`https://instagram.com/${profile.social.instagram}`} target="_blank" rel="noopener noreferrer" className="hover:text-plant-dark-green flex items-center">
-                    <Instagram className="h-4 w-4 mr-1" />
-                    <span className="text-sm">{profile.social.instagram}</span>
-                  </a>
-                )}
-                {profile.social.twitter && (
-                  <a href={`https://twitter.com/${profile.social.twitter}`} target="_blank" rel="noopener noreferrer" className="hover:text-plant-dark-green flex items-center">
-                    <Twitter className="h-4 w-4 mr-1" />
-                    <span className="text-sm">{profile.social.twitter}</span>
-                  </a>
-                )}
-                {profile.social.email && (
-                  <a href={`mailto:${profile.social.email}`} className="hover:text-plant-dark-green flex items-center">
-                    <AtSign className="h-4 w-4 mr-1" />
-                    <span className="text-sm">{profile.social.email}</span>
-                  </a>
-                )}
               </div>
             </div>
           </div>
@@ -226,70 +190,57 @@ export default function UserProfile() {
         {/* Tabs for plants and reviews */}
         <Tabs defaultValue="plants" className="w-full">
           <TabsList className="mb-6 bg-white border border-plant-mint/30">
-            <TabsTrigger value="plants" className="flex-1">Available Plants ({profile.plants.length})</TabsTrigger>
-            <TabsTrigger value="reviews" className="flex-1">Reviews ({profile.reviews.length})</TabsTrigger>
+            <TabsTrigger value="plants" className="flex-1">Available Plants ({plants?.length || 0})</TabsTrigger>
+            <TabsTrigger value="reviews" className="flex-1">Reviews ({reviews?.length || 0})</TabsTrigger>
           </TabsList>
           
           <TabsContent value="plants">
-            {profile.plants.length > 0 ? (
+            {isPlantsLoading ? (
+              <div className="text-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green mx-auto" />
+                <p className="mt-2 text-plant-gray">Loading plants...</p>
+              </div>
+            ) : plants?.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {profile.plants.map(plant => (
-                  <PlantCard key={plant.id} plant={plant} />
+                {plants.map(plant => (
+                  <Link to={`/plant/${plant.id}`} key={plant.id}>
+                    <PlantCard 
+                      plant={{
+                        id: plant.id,
+                        name: plant.name,
+                        species: plant.species || '',
+                        image: plant.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop',
+                        distance: profile?.location || 'Unknown location',
+                        owner: {
+                          name: profile?.username || 'Unknown user',
+                          avatar: profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3540&auto=format&fit=crop'
+                        },
+                        sunlight: plant.sunlight || 'Not specified',
+                        wateringFrequency: plant.watering_frequency || 'Not specified',
+                        difficulty: plant.difficulty || 'Moderate'
+                      }} 
+                    />
+                  </Link>
                 ))}
               </div>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg border border-plant-mint/30">
                 <p className="text-plant-gray text-lg">No plants available for swap yet</p>
                 {isOwnProfile && (
-                  <Button 
-                    variant="link" 
-                    className="text-plant-dark-green mt-2"
-                    onClick={() => window.location.href = "/add-plant"}
-                  >
-                    Add your first plant
-                  </Button>
+                  <Link to="/add-plant">
+                    <Button variant="link" className="text-plant-dark-green mt-2">
+                      Add your first plant
+                    </Button>
+                  </Link>
                 )}
               </div>
             )}
           </TabsContent>
           
           <TabsContent value="reviews">
-            {profile.reviews.length > 0 ? (
-              <div className="space-y-4">
-                {profile.reviews.map(review => (
-                  <div key={review.id} className="bg-white rounded-lg border border-plant-mint/30 p-4">
-                    <div className="flex justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <UserAvatar 
-                          src={review.avatar}
-                          fallback={review.user}
-                          className="h-8 w-8"
-                        />
-                        <span className="font-medium">{review.user}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-plant-gold flex">
-                          {[...Array(5)].map((_, i) => (
-                            <Star 
-                              key={i} 
-                              className={`h-4 w-4 ${i < review.rating ? "fill-current" : "stroke-current fill-transparent"}`} 
-                            />
-                          ))}
-                        </span>
-                        <span className="text-xs text-plant-gray ml-2">
-                          {new Date(review.date).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    <p>{review.text}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-white rounded-lg border border-plant-mint/30">
-                <p className="text-plant-gray text-lg">No reviews yet</p>
-              </div>
-            )}
+            <div className="text-center py-12 bg-white rounded-lg border border-plant-mint/30">
+              <p className="text-plant-gray text-lg">No reviews yet</p>
+            </div>
           </TabsContent>
         </Tabs>
       </main>

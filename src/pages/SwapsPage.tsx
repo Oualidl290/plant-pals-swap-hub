@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -10,11 +11,12 @@ import { useSwapRequests, SwapRequestStatus } from "@/hooks/useSwapRequests";
 import { format, formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SwapRequestWithDetails } from "@/types/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SwapsPage() {
-  // Change the type here to include 'all'
   const [activeTab, setActiveTab] = useState<string>("all");
   const { sentRequests, receivedRequests, updateSwapRequest, isUpdating, isLoadingSent, isLoadingReceived } = useSwapRequests();
+  const { toast } = useToast();
   
   // Filter requests based on active tab
   const filterRequests = (requests: SwapRequestWithDetails[] = [], status?: string) => {
@@ -39,6 +41,32 @@ export default function SwapsPage() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  // Handle swap status update
+  const handleUpdateSwapRequest = async (id: string, status: SwapRequestStatus) => {
+    try {
+      await updateSwapRequest({ id, status });
+      
+      const statusMessages = {
+        accepted: 'Swap request accepted!',
+        declined: 'Swap request declined.',
+        completed: 'Swap has been marked as completed!',
+        canceled: 'Swap request canceled.'
+      };
+      
+      toast({
+        title: "Status updated",
+        description: statusMessages[status as keyof typeof statusMessages] || "Request status updated",
+      });
+    } catch (error) {
+      console.error("Error updating swap request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update swap request. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }
   
   // Combine and sort all requests
   const allRequests = [
@@ -119,7 +147,9 @@ export default function SwapsPage() {
                       <CardContent className="pt-4">
                         <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
                           <div>
-                            <h3 className="font-medium">Plant: {request.plants?.name || 'Unknown plant'}</h3>
+                            <Link to={`/plant/${request.plant_id}`} className="hover:underline text-plant-dark-green">
+                              <h3 className="font-medium">Plant: {request.plants?.name || 'Unknown plant'}</h3>
+                            </Link>
                             {request.message && (
                               <p className="text-sm text-plant-gray mt-2 italic">"{request.message}"</p>
                             )}
@@ -131,7 +161,7 @@ export default function SwapsPage() {
                                 <Button 
                                   variant="outline" 
                                   className="border-red-200 hover:bg-red-50"
-                                  onClick={() => updateSwapRequest({ id: request.id, status: 'declined' })}
+                                  onClick={() => handleUpdateSwapRequest(request.id, 'declined')}
                                   disabled={isUpdating}
                                 >
                                   <X className="mr-1 h-4 w-4" />
@@ -140,7 +170,7 @@ export default function SwapsPage() {
                                 <Button 
                                   variant="outline" 
                                   className="border-plant-mint hover:bg-plant-mint/10"
-                                  onClick={() => updateSwapRequest({ id: request.id, status: 'accepted' })}
+                                  onClick={() => handleUpdateSwapRequest(request.id, 'accepted')}
                                   disabled={isUpdating}
                                 >
                                   <Check className="mr-1 h-4 w-4" />
@@ -153,7 +183,7 @@ export default function SwapsPage() {
                               <Button 
                                 variant="outline" 
                                 className="border-red-200 hover:bg-red-50"
-                                onClick={() => updateSwapRequest({ id: request.id, status: 'canceled' })}
+                                onClick={() => handleUpdateSwapRequest(request.id, 'canceled')}
                                 disabled={isUpdating}
                               >
                                 <X className="mr-1 h-4 w-4" />
@@ -165,7 +195,7 @@ export default function SwapsPage() {
                               <Button 
                                 variant="outline" 
                                 className="border-plant-mint hover:bg-plant-mint/10"
-                                onClick={() => updateSwapRequest({ id: request.id, status: 'completed' })}
+                                onClick={() => handleUpdateSwapRequest(request.id, 'completed')}
                                 disabled={isUpdating}
                               >
                                 <Check className="mr-1 h-4 w-4" />

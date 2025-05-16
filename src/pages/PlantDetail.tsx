@@ -1,10 +1,9 @@
 
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogIn, Edit, RefreshCw, Loader2, Heart, HeartOff } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
-import { PlantCard } from "@/components/PlantCard";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,10 +14,13 @@ import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SwapRequestModal } from "@/components/SwapRequestModal";
+import { useToast } from "@/hooks/use-toast";
 
 export default function PlantDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const { getPlant, toggleFavorite, checkFavoriteStatus } = usePlants();
   const [plant, setPlant] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,18 +34,31 @@ export default function PlantDetail() {
       try {
         setIsLoading(true);
         const plantData = await getPlant(id);
+        if (!plantData) {
+          toast({
+            title: "Plant not found",
+            description: "The plant you're looking for doesn't exist or has been removed.",
+            variant: "destructive"
+          });
+          navigate("/plants");
+          return;
+        }
         setPlant(plantData);
         setIsOwner(user?.id === plantData?.owner_id);
       } catch (error) {
         console.error("Failed to load plant:", error);
-        // Handle error appropriately, maybe redirect to a 404 page
+        toast({
+          title: "Error",
+          description: "Failed to load plant details. Please try again.",
+          variant: "destructive"
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     loadPlant();
-  }, [id, user, getPlant]);
+  }, [id, user, getPlant, navigate, toast]);
 
   useEffect(() => {
     const checkFavorite = async () => {
@@ -61,9 +76,17 @@ export default function PlantDetail() {
     try {
       await toggleFavorite(plant.id);
       setIsFavorited(!isFavorited); // Optimistically update the UI
+      toast({
+        title: isFavorited ? "Removed from favorites" : "Added to favorites",
+        description: isFavorited ? "Plant removed from your favorites" : "Plant added to your favorites",
+      });
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
-      // Optionally, show an error message to the user
+      toast({
+        title: "Error",
+        description: "Failed to update favorites. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -111,7 +134,16 @@ export default function PlantDetail() {
     }
 
     if (!plant) {
-      return <div className="text-center py-12">Plant not found.</div>;
+      return (
+        <div className="text-center py-12">
+          <p className="text-lg text-plant-gray">Plant not found.</p>
+          <Link to="/plants">
+            <Button variant="link" className="text-plant-dark-green mt-4">
+              Browse available plants
+            </Button>
+          </Link>
+        </div>
+      );
     }
 
     return (
@@ -123,7 +155,7 @@ export default function PlantDetail() {
               <img
                 src={plant.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop'}
                 alt={plant.name}
-                className="object-cover rounded-md"
+                className="object-cover rounded-md w-full h-full"
               />
             </AspectRatio>
           </CardContent>
@@ -136,7 +168,7 @@ export default function PlantDetail() {
               <CardTitle className="text-2xl font-bold">{plant.name}</CardTitle>
               {user && (
                 <Button variant="ghost" size="icon" onClick={handleToggleFavorite}>
-                  {isFavorited ? <Heart className="h-5 w-5 text-red-500" /> : <HeartOff className="h-5 w-5" />}
+                  {isFavorited ? <Heart className="h-5 w-5 text-red-500 fill-current" /> : <Heart className="h-5 w-5" />}
                 </Button>
               )}
             </div>
@@ -145,16 +177,18 @@ export default function PlantDetail() {
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
               <h3 className="text-lg font-medium">Owner</h3>
-              <div className="flex items-center space-x-4">
-                <Avatar>
-                  <AvatarImage src={plant.owner?.avatar_url || undefined} />
-                  <AvatarFallback>{plant.owner?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">{plant.owner?.username || 'Unknown'}</p>
-                  <p className="text-sm text-plant-gray">{plant.owner?.location || 'Location not specified'}</p>
+              <Link to={`/profile/${plant.profiles?.username || ''}`} className="hover:opacity-80">
+                <div className="flex items-center space-x-4">
+                  <Avatar>
+                    <AvatarImage src={plant.profiles?.avatar_url || undefined} />
+                    <AvatarFallback>{plant.profiles?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">{plant.profiles?.username || 'Unknown'}</p>
+                    <p className="text-sm text-plant-gray">{plant.profiles?.location || 'Location not specified'}</p>
+                  </div>
                 </div>
-              </div>
+              </Link>
             </div>
 
             <Separator />
@@ -213,6 +247,14 @@ export default function PlantDetail() {
       <Navbar />
       
       <main className="container mx-auto px-4 py-6 md:py-10">
+        <div className="mb-6">
+          <Link to="/plants" className="text-plant-dark-green hover:underline flex items-center">
+            <Button variant="link" className="pl-0">
+              ← Back to Plants
+            </Button>
+          </Link>
+        </div>
+        
         <div className="flex flex-col gap-6">
           {renderPlantDetails()}
         </div>

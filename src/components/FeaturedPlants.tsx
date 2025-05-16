@@ -1,6 +1,8 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { PlantCard } from "./PlantCard";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 // Sample plant data
 const featuredPlants = [
@@ -82,12 +84,14 @@ export function FeaturedPlants() {
         </div>
         
         <div className="mt-12 text-center">
-          <button className="btn-secondary inline-flex items-center">
-            View All Plants
-            <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </button>
+          <Link to="/plants">
+            <Button className="bg-plant-dark-green hover:bg-plant-dark-green/90 inline-flex items-center">
+              View All Plants
+              <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Button>
+          </Link>
         </div>
       </div>
     </section>

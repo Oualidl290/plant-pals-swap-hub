@@ -1,7 +1,11 @@
 
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Hero() {
+  const { user } = useAuth();
+  
   return (
     <section className="relative overflow-hidden">
       {/* Background pattern/gradient */}
@@ -22,19 +26,23 @@ export function Hero() {
             and build a greener community — all for free.
           </p>
           <div className="flex flex-wrap gap-4 pt-4">
-            <Button 
-              size="lg"
-              className="bg-plant-dark-green hover:bg-plant-dark-green/90 text-white rounded-full px-8"
-            >
-              Browse Plants
-            </Button>
-            <Button 
-              size="lg"
-              variant="outline"
-              className="border-plant-dark-green text-plant-dark-green hover:bg-plant-dark-green/10 rounded-full px-8"
-            >
-              Join Now
-            </Button>
+            <Link to="/plants">
+              <Button 
+                size="lg"
+                className="bg-plant-dark-green hover:bg-plant-dark-green/90 text-white rounded-full px-8"
+              >
+                Browse Plants
+              </Button>
+            </Link>
+            <Link to={user ? "/dashboard" : "/auth"}>
+              <Button 
+                size="lg"
+                variant="outline"
+                className="border-plant-dark-green text-plant-dark-green hover:bg-plant-dark-green/10 rounded-full px-8"
+              >
+                {user ? "Dashboard" : "Join Now"}
+              </Button>
+            </Link>
           </div>
           <div className="pt-6 flex items-center space-x-4 text-sm text-plant-gray">
             <div className="flex -space-x-2">
