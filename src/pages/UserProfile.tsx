@@ -30,28 +30,60 @@ export default function UserProfile() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { profile, isLoadingProfile, getProfile } = useProfile();
-  const { plants, userPlants, isLoading: isLoadingPlants, isLoadingUserPlants } = usePlants();
+  const { getProfile, getReviews, profile: authProfile, isLoadingProfile } = useProfile();
+  const { userPlants, isLoadingUserPlants } = usePlants();
+  
+  const [profile, setProfile] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingReviews, setLoadingReviews] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Check if viewing own profile - use memo to prevent unnecessary recalculations
-  const isOwnProfile = useMemo(() => 
-    user?.id === profile?.id || username === 'me', 
-    [user?.id, profile?.id, username]
-  );
+  // Check if viewing own profile
+  const isOwnProfile = useMemo(() => {
+    if (!user || !profile) return false;
+    return user.id === profile.id || username === 'me';
+  }, [user, profile, username]);
   
   // Fetch profile data with improved error handling
   useEffect(() => {
     const loadProfile = async () => {
+      if (!username && !user) return;
+
       setIsLoading(true);
       setError(null);
+      
       try {
+        let profileData;
         if (username === 'me' && user) {
-          await getProfile(user.user_metadata?.username || user.email || '');
+          // Use the logged-in user's profile
+          if (authProfile) {
+            setProfile(authProfile);
+            setIsLoading(false);
+            return;
+          } else {
+            profileData = await getProfile(user.id);
+          }
         } else if (username) {
-          await getProfile(username);
+          profileData = await getProfile(username);
+        } else {
+          throw new Error("No username or user ID provided");
+        }
+        
+        setProfile(profileData);
+        
+        // Load reviews for this profile
+        setLoadingReviews(true);
+        try {
+          if (profileData?.id) {
+            const reviewsData = await getReviews(profileData.id);
+            setReviews(reviewsData || []);
+          }
+        } catch (reviewError) {
+          console.error("Error loading reviews:", reviewError);
+          // Don't block the whole profile on review errors
+        } finally {
+          setLoadingReviews(false);
         }
       } catch (error: any) {
         console.error('Failed to load profile:', error);
@@ -67,15 +99,15 @@ export default function UserProfile() {
     };
     
     loadProfile();
-  }, [username, user, getProfile, toast]);
+  }, [username, user, getProfile, getReviews, authProfile, toast]);
   
-  // Filter plants with memoization to avoid unnecessary filtering on every render
-  const filteredPlants = useMemo(() => 
-    userPlants?.filter(plant => plant.owner_id === profile?.id) || [],
-    [userPlants, profile?.id]
-  );
+  // Filter plants with memoization
+  const filteredPlants = useMemo(() => {
+    if (!profile || !userPlants) return [];
+    return userPlants.filter(plant => plant.owner_id === profile.id);
+  }, [userPlants, profile]);
 
-  // If we're still fetching the initial auth state, show the auth loading screen
+  // Still loading the initial auth state
   if (!user && username === 'me') {
     return <LoadingScreen />;
   }
@@ -181,7 +213,7 @@ export default function UserProfile() {
               <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
                 <div>
                   <h1 className="text-3xl font-serif font-bold text-plant-dark-green">{profile?.username}</h1>
-                  <p className="text-plant-gray">@{profile?.username}</p>
+                  {profile?.username && <p className="text-plant-gray">@{profile.username}</p>}
                 </div>
                 
                 <div className="mt-4 md:mt-0 space-x-3">
@@ -197,15 +229,17 @@ export default function UserProfile() {
                     </Link>
                   ) : (
                     <>
-                      <Link to={`/messages?user=${profile.id}`}>
-                        <Button 
-                          variant="outline"
-                          className="border-plant-mint/50"
-                        >
-                          <MessageSquare className="mr-2 h-4 w-4" />
-                          Message
-                        </Button>
-                      </Link>
+                      {user && (
+                        <Link to={`/messages?user=${profile.id}`}>
+                          <Button 
+                            variant="outline"
+                            className="border-plant-mint/50"
+                          >
+                            <MessageSquare className="mr-2 h-4 w-4" />
+                            Message
+                          </Button>
+                        </Link>
+                      )}
                       <Button className="bg-plant-dark-green hover:bg-plant-dark-green/90">
                         Follow
                       </Button>
@@ -287,9 +321,50 @@ export default function UserProfile() {
           </TabsContent>
           
           <TabsContent value="reviews">
-            <div className="text-center py-12 bg-white rounded-lg border border-plant-mint/30">
-              <p className="text-plant-gray text-lg">No reviews yet</p>
-            </div>
+            {loadingReviews ? (
+              <div className="text-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green mx-auto" />
+                <p className="mt-2 text-plant-gray">Loading reviews...</p>
+              </div>
+            ) : reviews && reviews.length > 0 ? (
+              <div className="space-y-4">
+                {reviews.map((review: any) => (
+                  <div key={review.id} className="bg-white rounded-lg border border-plant-mint/30 p-4">
+                    <div className="flex items-start">
+                      <UserAvatar 
+                        src={review.reviewer_avatar_url} 
+                        fallback={review.reviewer_username || 'User'} 
+                        className="h-10 w-10 mr-3" 
+                      />
+                      <div className="flex-grow">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">{review.reviewer_username}</p>
+                            <div className="flex items-center text-yellow-500 mt-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star 
+                                  key={i} 
+                                  className={`h-4 w-4 ${i < review.rating ? 'fill-yellow-500' : 'text-gray-300'}`} 
+                                  fill={i < review.rating ? "currentColor" : "none"} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <span className="text-sm text-plant-gray">
+                            {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
+                          </span>
+                        </div>
+                        {review.comment && <p className="mt-2">{review.comment}</p>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-white rounded-lg border border-plant-mint/30">
+                <p className="text-plant-gray text-lg">No reviews yet</p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </main>
