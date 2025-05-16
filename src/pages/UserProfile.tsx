@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -22,37 +22,53 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlants } from "@/hooks/usePlants";
 import { formatDistanceToNow } from 'date-fns';
+import { useToast } from "@/hooks/use-toast";
 
 export default function UserProfile() {
   const { username } = useParams<{ username: string }>();
   const { user } = useAuth();
+  const { toast } = useToast();
   const { getProfile, profile, isLoadingProfile } = useProfile();
   const { plants: userPlants, isLoadingUserPlants } = usePlants();
   const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Check if viewing own profile
-  const isOwnProfile = user?.id === profile?.id || username === 'me';
+  // Check if viewing own profile - use memo to prevent unnecessary recalculations
+  const isOwnProfile = useMemo(() => 
+    user?.id === profile?.id || username === 'me', 
+    [user?.id, profile?.id, username]
+  );
   
-  // Fetch profile data
+  // Fetch profile data with error handling
   useEffect(() => {
     const loadProfile = async () => {
       setIsLoading(true);
-      if (username === 'me' && user) {
-        await getProfile(user.user_metadata?.username || '');
-      } else if (username) {
-        await getProfile(username);
+      try {
+        if (username === 'me' && user) {
+          await getProfile(user.user_metadata?.username || '');
+        } else if (username) {
+          await getProfile(username);
+        }
+      } catch (error) {
+        console.error('Failed to load profile:', error);
+        toast({
+          title: "Error loading profile",
+          description: "Could not load user profile. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     
     loadProfile();
-  }, [username, user, getProfile]);
+  }, [username, user, getProfile, toast]);
   
-  // Filter plants to show only those belonging to the current profile
-  const filteredPlants = userPlants?.filter(plant => 
-    plant.owner_id === profile?.id
-  ) || [];
+  // Filter plants with memoization to avoid unnecessary filtering on every render
+  const filteredPlants = useMemo(() => 
+    userPlants?.filter(plant => plant.owner_id === profile?.id) || [],
+    [userPlants, profile?.id]
+  );
 
   // Render loading state
   if (isLoading || isLoadingProfile) {
