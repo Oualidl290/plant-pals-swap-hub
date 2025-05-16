@@ -26,9 +26,8 @@ import { formatDistanceToNow } from 'date-fns';
 export default function UserProfile() {
   const { username } = useParams<{ username: string }>();
   const { user } = useAuth();
-  const { getProfileByUsername, profile, isLoading: isProfileLoading } = useProfile();
-  const { getPlantsForUser, isLoading: isPlantsLoading } = usePlants();
-  const [plants, setPlants] = useState([]);
+  const { getProfile, profile, isLoadingProfile } = useProfile();
+  const { plants: userPlants, isLoadingUserPlants } = usePlants();
   const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -40,32 +39,23 @@ export default function UserProfile() {
     const loadProfile = async () => {
       setIsLoading(true);
       if (username === 'me' && user) {
-        await getProfileByUsername(user.user_metadata?.username || '');
+        await getProfile(user.user_metadata?.username || '');
       } else if (username) {
-        await getProfileByUsername(username);
+        await getProfile(username);
       }
       setIsLoading(false);
     };
     
     loadProfile();
-  }, [username, user, getProfileByUsername]);
+  }, [username, user, getProfile]);
   
-  // Fetch user's plants
-  useEffect(() => {
-    const loadPlants = async () => {
-      if (profile?.id) {
-        const userPlants = await getPlantsForUser(profile.id);
-        setPlants(userPlants || []);
-      }
-    };
-    
-    if (profile) {
-      loadPlants();
-    }
-  }, [profile, getPlantsForUser]);
+  // Filter plants to show only those belonging to the current profile
+  const filteredPlants = userPlants?.filter(plant => 
+    plant.owner_id === profile?.id
+  ) || [];
 
   // Render loading state
-  if (isLoading || isProfileLoading) {
+  if (isLoading || isLoadingProfile) {
     return (
       <div className="min-h-screen bg-plant-cream/50">
         <Navbar />
@@ -180,7 +170,7 @@ export default function UserProfile() {
                 </div>
                 <div className="flex items-center">
                   <MessageSquare className="h-4 w-4 text-plant-gray mr-2" />
-                  <span>{plants?.length || 0} plants available</span>
+                  <span>{filteredPlants.length || 0} plants available</span>
                 </div>
               </div>
             </div>
@@ -190,19 +180,19 @@ export default function UserProfile() {
         {/* Tabs for plants and reviews */}
         <Tabs defaultValue="plants" className="w-full">
           <TabsList className="mb-6 bg-white border border-plant-mint/30">
-            <TabsTrigger value="plants" className="flex-1">Available Plants ({plants?.length || 0})</TabsTrigger>
+            <TabsTrigger value="plants" className="flex-1">Available Plants ({filteredPlants.length || 0})</TabsTrigger>
             <TabsTrigger value="reviews" className="flex-1">Reviews ({reviews?.length || 0})</TabsTrigger>
           </TabsList>
           
           <TabsContent value="plants">
-            {isPlantsLoading ? (
+            {isLoadingUserPlants ? (
               <div className="text-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green mx-auto" />
                 <p className="mt-2 text-plant-gray">Loading plants...</p>
               </div>
-            ) : plants?.length > 0 ? (
+            ) : filteredPlants.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {plants.map(plant => (
+                {filteredPlants.map(plant => (
                   <Link to={`/plant/${plant.id}`} key={plant.id}>
                     <PlantCard 
                       plant={{
