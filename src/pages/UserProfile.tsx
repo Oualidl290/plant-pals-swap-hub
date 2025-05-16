@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { 
@@ -23,15 +23,18 @@ import { useProfile } from "@/hooks/useProfile";
 import { usePlants } from "@/hooks/usePlants";
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
+import { LoadingScreen } from "@/components/auth/LoadingScreen";
 
 export default function UserProfile() {
   const { username } = useParams<{ username: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { getProfile, profile, isLoadingProfile } = useProfile();
-  const { plants: userPlants, isLoadingUserPlants } = usePlants();
+  const navigate = useNavigate();
+  const { profile, isLoadingProfile, getProfile } = useProfile();
+  const { plants, userPlants, isLoading: isLoadingPlants, isLoadingUserPlants } = usePlants();
   const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Check if viewing own profile - use memo to prevent unnecessary recalculations
   const isOwnProfile = useMemo(() => 
@@ -39,18 +42,20 @@ export default function UserProfile() {
     [user?.id, profile?.id, username]
   );
   
-  // Fetch profile data with error handling
+  // Fetch profile data with improved error handling
   useEffect(() => {
     const loadProfile = async () => {
       setIsLoading(true);
+      setError(null);
       try {
         if (username === 'me' && user) {
-          await getProfile(user.user_metadata?.username || '');
+          await getProfile(user.user_metadata?.username || user.email || '');
         } else if (username) {
           await getProfile(username);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to load profile:', error);
+        setError(error.message || "Could not load user profile. Please try again.");
         toast({
           title: "Error loading profile",
           description: "Could not load user profile. Please try again.",
@@ -70,6 +75,11 @@ export default function UserProfile() {
     [userPlants, profile?.id]
   );
 
+  // If we're still fetching the initial auth state, show the auth loading screen
+  if (!user && username === 'me') {
+    return <LoadingScreen />;
+  }
+
   // Render loading state
   if (isLoading || isLoadingProfile) {
     return (
@@ -79,6 +89,39 @@ export default function UserProfile() {
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green mx-auto" />
             <p className="mt-2 text-plant-gray">Loading profile...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+  
+  // Render error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-plant-cream/50">
+        <Navbar />
+        <main className="container mx-auto px-4 py-6 md:py-10">
+          <div className="mb-6">
+            <Link to="/" className="text-plant-dark-green hover:underline flex items-center">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to home
+            </Link>
+          </div>
+          <div className="text-center py-12 bg-white rounded-lg border border-plant-mint/30 p-6">
+            <h1 className="text-2xl font-bold mb-2">Error Loading Profile</h1>
+            <p className="text-plant-gray mb-4">{error}</p>
+            <Button 
+              variant="default" 
+              className="bg-plant-dark-green hover:bg-plant-dark-green/90 mr-4" 
+              onClick={() => navigate(0)}
+            >
+              Try Again
+            </Button>
+            <Link to="/">
+              <Button variant="outline" className="border-plant-mint/50">
+                Return to home
+              </Button>
+            </Link>
           </div>
         </main>
       </div>
@@ -97,7 +140,7 @@ export default function UserProfile() {
               Back to home
             </Link>
           </div>
-          <div className="text-center py-12">
+          <div className="text-center py-12 bg-white rounded-lg border border-plant-mint/30 p-6">
             <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
             <p className="text-plant-gray">The user profile you're looking for doesn't exist or has been removed.</p>
             <Link to="/">

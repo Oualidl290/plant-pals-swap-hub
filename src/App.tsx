@@ -5,8 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import { LoadingScreen } from "./components/auth/LoadingScreen";
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
@@ -21,33 +22,29 @@ const Messages = lazy(() => import("./pages/Messages"));
 const AddPlant = lazy(() => import("./pages/AddPlant"));
 const SwapsPage = lazy(() => import("./pages/SwapsPage"));
 
-// Loading fallback
-const LoadingFallback = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-plant-dark-green"></div>
-  </div>
-);
-
 function App() {
-  // Create a new QueryClient instance with improved settings
-  const queryClient = new QueryClient({
+  const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
         refetchOnWindowFocus: false,
         retry: 1,
         staleTime: 30000,
+        // Add more robust error handling
+        onError: (error) => {
+          console.error('Query error:', error);
+        }
       },
     },
-  });
+  }));
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
-          <Sonner />
+          <Sonner position="top-right" />
           <BrowserRouter>
-            <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingScreen />}>
               <Routes>
                 <Route path="/" element={<Index />} />
                 

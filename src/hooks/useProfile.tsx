@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -20,52 +19,92 @@ export function useProfile() {
   const queryClient = useQueryClient();
   const { user, updateProfile: updateAuthProfile } = useAuth();
 
-  // Get profile by username or ID
+  // Get profile by username or ID with improved error handling
   const getProfile = async (usernameOrId: string) => {
+    if (!usernameOrId) {
+      throw new Error('Username or ID is required');
+    }
+    
     // Check if we're searching by ID or username
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(usernameOrId);
     
-    const query = supabase
-      .from('profiles')
-      .select('*, plants!inner(id, name, species, image_url, created_at)')
-      .order('created_at', { foreignTable: 'plants', ascending: false });
+    try {
+      const query = supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      const { data, error } = await (isUuid 
+        ? query.eq('id', usernameOrId).maybeSingle()
+        : query.eq('username', usernameOrId).maybeSingle());
       
-    const { data, error } = await (isUuid 
-      ? query.eq('id', usernameOrId).single()
-      : query.eq('username', usernameOrId).single());
-    
-    if (error) throw error;
-    return data as ProfileWithDetails;
+      if (error) throw error;
+      if (!data) throw new Error(`Profile not found for ${usernameOrId}`);
+      
+      return data as ProfileWithDetails;
+    } catch (error: any) {
+      console.error('Error fetching profile:', error);
+      throw new Error(error.message || 'Failed to load profile');
+    }
   };
 
-  // Get current user's profile
-  const { data: profile, isLoading: isLoadingProfile } = useQuery({
+  // Get current user's profile with better error handling
+  const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user) return null;
       
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      if (error) throw error;
-      return data as ProfileWithDetails;
+        if (error) throw error;
+        if (!data) {
+          // If profile doesn't exist, create it
+          const newProfile = {
+            id: user.id,
+            username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
+            avatar_url: user.user_metadata?.avatar_url || null,
+          };
+          
+          const { data: createdProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert(newProfile)
+            .select()
+            .single();
+            
+          if (createError) throw createError;
+          return createdProfile as ProfileWithDetails;
+        }
+        
+        return data as ProfileWithDetails;
+      } catch (error: any) {
+        console.error('Error fetching user profile:', error);
+        throw new Error(error.message || 'Failed to load user profile');
+      }
     },
+    retry: 2,
     enabled: !!user
   });
 
   // Get reviews for a user
   const getReviews = async (userId: string): Promise<Review[]> => {
-    // Use RPC call instead of direct table access
-    const { data, error } = await supabase.rpc('get_user_reviews', { p_user_id: userId });
-      
-    if (error) throw error;
-    return data || [];
+    try {
+      // Use RPC call instead of direct table access
+      const { data, error } = await supabase.rpc('get_user_reviews', { p_user_id: userId });
+        
+      if (error) throw error;
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching reviews:', error);
+      throw new Error(error.message || 'Failed to load reviews');
+    }
   };
 
-  // Update profile mutation
+  // Update profile mutation with better error handling
   const updateProfileMutation = useMutation({
     mutationFn: async (profileData: ProfileData) => {
       if (!user) throw new Error('You must be logged in to update your profile');
@@ -91,7 +130,7 @@ export function useProfile() {
         description: 'Your profile has been successfully updated.'
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
         description: `Failed to update profile: ${error.message}`,
@@ -189,6 +228,7 @@ export function useProfile() {
 
   return {
     profile,
+    profileError,
     isLoadingProfile,
     getProfile,
     getReviews,
