@@ -90,7 +90,7 @@ function App() {
               />
               
               <Route path="/plants" element={<Plants />} />
-              <Route path="/plants/:id" element={<PlantDetail />} />
+              <Route path="/plant/:id" element={<PlantDetail />} />
               
               <Route 
                 path="/profile/:username" 

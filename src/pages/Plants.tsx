@@ -159,7 +159,7 @@ export default function Plants() {
               </div>
             ) : plants && plants.length > 0 ? (
               plants.map((plant: PlantWithDetails) => (
-                <Link to={`/plants/${plant.id}`} key={plant.id}>
+                <Link to={`/plant/${plant.id}`} key={plant.id}>
                   <PlantCard 
                     plant={{
                       id: plant.id,
