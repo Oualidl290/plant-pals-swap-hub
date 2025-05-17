@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,6 @@ import {
   MapPin,
   Star,
   PencilLine,
-  Instagram,
-  Twitter,
-  AtSign,
   Loader2
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -24,50 +21,52 @@ import { usePlants } from "@/hooks/usePlants";
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 import { LoadingScreen } from "@/components/auth/LoadingScreen";
+import { ProfileWithDetails, Review } from "@/types/supabase";
 
 export default function UserProfile() {
   const { username } = useParams<{ username: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { getProfile, getReviews, profile: authProfile, isLoadingProfile } = useProfile();
+  const { getProfile, getReviews } = useProfile();
   const { userPlants, isLoadingUserPlants } = usePlants();
   
-  const [profile, setProfile] = useState(null);
-  const [reviews, setReviews] = useState([]);
+  const [profile, setProfile] = useState<ProfileWithDetails | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Check if viewing own profile
-  const isOwnProfile = useMemo(() => {
-    if (!user || !profile) return false;
-    return user.id === profile.id || username === 'me';
-  }, [user, profile, username]);
+  const isOwnProfile = user && profile && (user.id === profile.id || username === 'me');
   
   // Fetch profile data with improved error handling
   useEffect(() => {
     const loadProfile = async () => {
-      if (!username && !user) return;
+      if (!username && !user) {
+        setError("No username provided");
+        setIsLoading(false);
+        return;
+      }
 
       setIsLoading(true);
       setError(null);
       
       try {
         let profileData;
+        
         if (username === 'me' && user) {
-          // Use the logged-in user's profile
-          if (authProfile) {
-            setProfile(authProfile);
-            setIsLoading(false);
-            return;
-          } else {
-            profileData = await getProfile(user.id);
-          }
+          // Load current user's profile
+          profileData = await getProfile(user.id);
         } else if (username) {
+          // Load profile by username
           profileData = await getProfile(username);
         } else {
           throw new Error("No username or user ID provided");
+        }
+        
+        if (!profileData) {
+          throw new Error("Profile not found");
         }
         
         setProfile(profileData);
@@ -99,13 +98,12 @@ export default function UserProfile() {
     };
     
     loadProfile();
-  }, [username, user, getProfile, getReviews, authProfile, toast]);
+  }, [username, user, getProfile, getReviews, toast]);
   
-  // Filter plants with memoization
-  const filteredPlants = useMemo(() => {
-    if (!profile || !userPlants) return [];
-    return userPlants.filter(plant => plant.owner_id === profile.id);
-  }, [userPlants, profile]);
+  // Filter plants for this profile
+  const filteredPlants = userPlants && profile 
+    ? userPlants.filter(plant => plant.owner_id === profile.id)
+    : [];
 
   // Still loading the initial auth state
   if (!user && username === 'me') {
@@ -113,7 +111,7 @@ export default function UserProfile() {
   }
 
   // Render loading state
-  if (isLoading || isLoadingProfile) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-plant-cream/50">
         <Navbar />
@@ -202,8 +200,8 @@ export default function UserProfile() {
             {/* Avatar */}
             <div className="shrink-0">
               <UserAvatar 
-                src={profile?.avatar_url} 
-                fallback={profile?.username || 'User'}
+                src={profile.avatar_url} 
+                fallback={profile.username || 'User'}
                 className="h-24 w-24 md:h-32 md:w-32"
               />
             </div>
@@ -212,8 +210,8 @@ export default function UserProfile() {
             <div className="flex-grow">
               <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-4">
                 <div>
-                  <h1 className="text-3xl font-serif font-bold text-plant-dark-green">{profile?.username}</h1>
-                  {profile?.username && <p className="text-plant-gray">@{profile.username}</p>}
+                  <h1 className="text-3xl font-serif font-bold text-plant-dark-green">{profile.username}</h1>
+                  {profile.username && <p className="text-plant-gray">@{profile.username}</p>}
                 </div>
                 
                 <div className="mt-4 md:mt-0 space-x-3">
@@ -248,10 +246,10 @@ export default function UserProfile() {
                 </div>
               </div>
               
-              <p className="mb-4">{profile?.bio || "No bio available."}</p>
+              <p className="mb-4">{profile.bio || "No bio available."}</p>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                {profile?.location && (
+                {profile.location && (
                   <div className="flex items-center">
                     <MapPin className="h-4 w-4 text-plant-gray mr-2" />
                     <span>{profile.location}</span>
@@ -259,7 +257,7 @@ export default function UserProfile() {
                 )}
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 text-plant-gray mr-2" />
-                  <span>Member since {formatDistanceToNow(new Date(profile?.created_at || new Date()), { addSuffix: true })}</span>
+                  <span>Member since {formatDistanceToNow(new Date(profile.created_at || new Date()), { addSuffix: true })}</span>
                 </div>
                 <div className="flex items-center">
                   <MessageSquare className="h-4 w-4 text-plant-gray mr-2" />
@@ -293,10 +291,10 @@ export default function UserProfile() {
                         name: plant.name,
                         species: plant.species || '',
                         image: plant.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop',
-                        distance: profile?.location || 'Unknown location',
+                        distance: profile.location || 'Unknown location',
                         owner: {
-                          name: profile?.username || 'Unknown user',
-                          avatar: profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3540&auto=format&fit=crop'
+                          name: profile.username || 'Unknown user',
+                          avatar: profile.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3540&auto=format&fit=crop'
                         },
                         sunlight: plant.sunlight || 'Not specified',
                         wateringFrequency: plant.watering_frequency || 'Not specified',
@@ -328,11 +326,11 @@ export default function UserProfile() {
               </div>
             ) : reviews && reviews.length > 0 ? (
               <div className="space-y-4">
-                {reviews.map((review: any) => (
+                {reviews.map((review) => (
                   <div key={review.id} className="bg-white rounded-lg border border-plant-mint/30 p-4">
                     <div className="flex items-start">
                       <UserAvatar 
-                        src={review.reviewer_avatar_url} 
+                        src={review.reviewer_avatar_url || ''} 
                         fallback={review.reviewer_username || 'User'} 
                         className="h-10 w-10 mr-3" 
                       />

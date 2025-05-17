@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SwapRequestModal } from "@/components/SwapRequestModal";
 import { useToast } from "@/hooks/use-toast";
+import { PlantWithDetails } from "@/types/supabase";
 
 export default function PlantDetail() {
   const { id } = useParams<{ id: string }>();
@@ -22,7 +23,8 @@ export default function PlantDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { getPlant, toggleFavorite, checkFavoriteStatus } = usePlants();
-  const [plant, setPlant] = useState(null);
+  
+  const [plant, setPlant] = useState<PlantWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -55,14 +57,14 @@ export default function PlantDetail() {
         }
         
         setPlant(plantData);
-        setIsOwner(user?.id === plantData?.owner_id);
+        setIsOwner(user?.id === plantData.owner_id);
         
         // Check if this plant is in user's favorites
         if (user) {
           const favorited = await checkFavoriteStatus(plantData.id);
           setIsFavorited(favorited);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to load plant:", error);
         setIsError(true);
         toast({
@@ -76,18 +78,20 @@ export default function PlantDetail() {
     };
 
     loadPlant();
-  }, [id, user, getPlant, navigate, toast, checkFavoriteStatus]);
+  }, [id, user, getPlant, toast, checkFavoriteStatus]);
 
   const handleToggleFavorite = async () => {
     if (!user || !plant) return;
+    
     try {
       await toggleFavorite(plant.id);
       setIsFavorited(!isFavorited); // Optimistically update the UI
+      
       toast({
         title: isFavorited ? "Removed from favorites" : "Added to favorites",
         description: isFavorited ? "Plant removed from your favorites" : "Plant added to your favorites",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to toggle favorite:", error);
       toast({
         title: "Error",
@@ -162,6 +166,11 @@ export default function PlantDetail() {
     );
   }
 
+  const ownerName = plant.profiles?.username || plant.owner?.username || 'Unknown';
+  const ownerLocation = plant.profiles?.location || plant.owner?.location || 'Location not specified';
+  const ownerAvatar = plant.profiles?.avatar_url || plant.owner?.avatar_url;
+  const ownerId = plant.owner_id;
+
   return (
     <div className="min-h-screen bg-plant-cream/50">
       <Navbar />
@@ -205,15 +214,15 @@ export default function PlantDetail() {
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
                 <h3 className="text-lg font-medium">Owner</h3>
-                <Link to={`/profile/${plant.profiles?.username || ''}`} className="hover:opacity-80">
+                <Link to={`/profile/${ownerName}`} className="hover:opacity-80">
                   <div className="flex items-center space-x-4">
                     <Avatar>
-                      <AvatarImage src={plant.profiles?.avatar_url || undefined} />
-                      <AvatarFallback>{plant.profiles?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+                      <AvatarImage src={ownerAvatar} />
+                      <AvatarFallback>{ownerName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{plant.profiles?.username || 'Unknown'}</p>
-                      <p className="text-sm text-plant-gray">{plant.profiles?.location || 'Location not specified'}</p>
+                      <p className="font-medium">{ownerName}</p>
+                      <p className="text-sm text-plant-gray">{ownerLocation}</p>
                     </div>
                   </div>
                 </Link>
@@ -275,7 +284,7 @@ export default function PlantDetail() {
           onClose={() => setIsSwapModalOpen(false)}
           plantId={plant.id}
           plantName={plant.name}
-          ownerId={plant.owner_id}
+          ownerId={ownerId}
         />
       )}
     </div>
