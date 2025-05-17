@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogIn, Edit, RefreshCw, Loader2, Heart } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
@@ -9,22 +9,19 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlants } from "@/hooks/usePlants";
-import { formatDistanceToNow } from 'date-fns';
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SwapRequestModal } from "@/components/SwapRequestModal";
 import { useToast } from "@/hooks/use-toast";
-import { PlantWithDetails } from "@/types/supabase";
 
 export default function PlantDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const { getPlant, toggleFavorite, checkFavoriteStatus } = usePlants();
   
-  const [plant, setPlant] = useState<PlantWithDetails | null>(null);
+  const [plant, setPlant] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -32,7 +29,7 @@ export default function PlantDetail() {
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
 
   useEffect(() => {
-    const loadPlant = async () => {
+    async function loadPlant() {
       if (!id) {
         setIsError(true);
         setIsLoading(false);
@@ -44,7 +41,6 @@ export default function PlantDetail() {
         setIsError(false);
         
         const plantData = await getPlant(id);
-        console.log("Loaded plant data:", plantData);
         
         if (!plantData) {
           setIsError(true);
@@ -64,7 +60,7 @@ export default function PlantDetail() {
           const favorited = await checkFavoriteStatus(plantData.id);
           setIsFavorited(favorited);
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error("Failed to load plant:", error);
         setIsError(true);
         toast({
@@ -75,7 +71,7 @@ export default function PlantDetail() {
       } finally {
         setIsLoading(false);
       }
-    };
+    }
 
     loadPlant();
   }, [id, user, getPlant, toast, checkFavoriteStatus]);
@@ -85,13 +81,13 @@ export default function PlantDetail() {
     
     try {
       await toggleFavorite(plant.id);
-      setIsFavorited(!isFavorited); // Optimistically update the UI
+      setIsFavorited(!isFavorited);
       
       toast({
         title: isFavorited ? "Removed from favorites" : "Added to favorites",
         description: isFavorited ? "Plant removed from your favorites" : "Plant added to your favorites",
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to toggle favorite:", error);
       toast({
         title: "Error",
@@ -166,8 +162,7 @@ export default function PlantDetail() {
     );
   }
 
-  // Extract owner information from the plant object
-  // Use nullish coalescing operator to handle potential undefined values
+  // Get owner details from the plant object
   const ownerName = plant.owner?.username || 'Unknown';
   const ownerLocation = plant.owner?.location || 'Location not specified';
   const ownerAvatar = plant.owner?.avatar_url;
