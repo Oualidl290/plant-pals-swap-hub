@@ -57,6 +57,9 @@ export interface Review {
   rating: number;
   comment?: string | null;
   created_at: string;
+  // Add the missing properties that come from the get_user_reviews function
+  reviewer_username?: string | null;
+  reviewer_avatar_url?: string | null;
   reviewer?: {
     username: string | null;
     avatar_url: string | null;
