@@ -24,29 +24,47 @@ export default function PlantDetail() {
   const { getPlant, toggleFavorite, checkFavoriteStatus } = usePlants();
   const [plant, setPlant] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
 
   useEffect(() => {
     const loadPlant = async () => {
-      if (!id) return;
+      if (!id) {
+        setIsError(true);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
+        setIsError(false);
+        
         const plantData = await getPlant(id);
+        console.log("Loaded plant data:", plantData);
+        
         if (!plantData) {
+          setIsError(true);
           toast({
             title: "Plant not found",
             description: "The plant you're looking for doesn't exist or has been removed.",
             variant: "destructive"
           });
-          navigate("/plants");
           return;
         }
+        
         setPlant(plantData);
         setIsOwner(user?.id === plantData?.owner_id);
+        
+        // Check if this plant is in user's favorites
+        if (user) {
+          const favorited = await checkFavoriteStatus(plantData.id);
+          setIsFavorited(favorited);
+        }
       } catch (error) {
         console.error("Failed to load plant:", error);
+        setIsError(true);
         toast({
           title: "Error",
           description: "Failed to load plant details. Please try again.",
@@ -58,21 +76,10 @@ export default function PlantDetail() {
     };
 
     loadPlant();
-  }, [id, user, getPlant, navigate, toast]);
-
-  useEffect(() => {
-    const checkFavorite = async () => {
-      if (plant && user) {
-        const favorited = await checkFavoriteStatus(plant.id);
-        setIsFavorited(favorited);
-      }
-    };
-
-    checkFavorite();
-  }, [plant, user, checkFavoriteStatus]);
+  }, [id, user, getPlant, navigate, toast, checkFavoriteStatus]);
 
   const handleToggleFavorite = async () => {
-    if (!plant) return;
+    if (!user || !plant) return;
     try {
       await toggleFavorite(plant.id);
       setIsFavorited(!isFavorited); // Optimistically update the UI
@@ -124,123 +131,36 @@ export default function PlantDetail() {
     );
   };
 
-  const renderPlantDetails = () => {
-    if (isLoading) {
-      return (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green" />
-        </div>
-      );
-    }
-
-    if (!plant) {
-      return (
-        <div className="text-center py-12">
-          <p className="text-lg text-plant-gray">Plant not found.</p>
-          <Link to="/plants">
-            <Button variant="link" className="text-plant-dark-green mt-4">
-              Browse available plants
-            </Button>
-          </Link>
-        </div>
-      );
-    }
-
+  if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Plant Image */}
-        <Card className="md:order-1">
-          <CardContent className="p-0">
-            <AspectRatio ratio={16 / 9}>
-              <img
-                src={plant.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop'}
-                alt={plant.name}
-                className="object-cover rounded-md w-full h-full"
-              />
-            </AspectRatio>
-          </CardContent>
-        </Card>
-
-        {/* Plant Details */}
-        <Card className="md:order-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-2xl font-bold">{plant.name}</CardTitle>
-              {user && (
-                <Button variant="ghost" size="icon" onClick={handleToggleFavorite}>
-                  {isFavorited ? <Heart className="h-5 w-5 text-red-500 fill-current" /> : <Heart className="h-5 w-5" />}
-                </Button>
-              )}
-            </div>
-            <CardDescription>{plant.species}</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <h3 className="text-lg font-medium">Owner</h3>
-              <Link to={`/profile/${plant.profiles?.username || ''}`} className="hover:opacity-80">
-                <div className="flex items-center space-x-4">
-                  <Avatar>
-                    <AvatarImage src={plant.profiles?.avatar_url || undefined} />
-                    <AvatarFallback>{plant.profiles?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{plant.profiles?.username || 'Unknown'}</p>
-                    <p className="text-sm text-plant-gray">{plant.profiles?.location || 'Location not specified'}</p>
-                  </div>
-                </div>
-              </Link>
-            </div>
-
-            <Separator />
-
-            <div className="grid gap-2">
-              <h3 className="text-lg font-medium">Details</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-plant-gray">Difficulty:</p>
-                  <Badge variant="secondary">{plant.difficulty || 'Not specified'}</Badge>
-                </div>
-                <div>
-                  <p className="text-plant-gray">Sunlight:</p>
-                  <Badge variant="secondary">{plant.sunlight || 'Not specified'}</Badge>
-                </div>
-                <div>
-                  <p className="text-plant-gray">Watering:</p>
-                  <Badge variant="secondary">{plant.watering_frequency || 'Not specified'}</Badge>
-                </div>
-                <div>
-                  <p className="text-plant-gray">Size:</p>
-                  <Badge variant="secondary">{plant.size || 'Not specified'}</Badge>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="grid gap-2">
-              <h3 className="text-lg font-medium">Description</h3>
-              <p className="text-plant-gray">{plant.description || 'No description provided.'}</p>
-            </div>
-
-            <Separator />
-
-            <div className="grid gap-2">
-              <h3 className="text-lg font-medium">Care Instructions</h3>
-              <ScrollArea className="h-32">
-                <p className="text-plant-gray">{plant.care_instructions || 'No care instructions provided.'}</p>
-              </ScrollArea>
-            </div>
-
-            <Separator />
-
-            <div className="grid gap-2">
-              {renderActionButton()}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-plant-cream/50">
+        <Navbar />
+        <main className="container mx-auto px-4 py-6 md:py-10">
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-plant-dark-green" />
+          </div>
+        </main>
       </div>
     );
-  };
+  }
+
+  if (isError || !plant) {
+    return (
+      <div className="min-h-screen bg-plant-cream/50">
+        <Navbar />
+        <main className="container mx-auto px-4 py-6 md:py-10">
+          <div className="text-center py-12">
+            <p className="text-lg text-plant-gray">Plant not found or error loading plant details.</p>
+            <Link to="/plants">
+              <Button variant="link" className="text-plant-dark-green mt-4">
+                Browse available plants
+              </Button>
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-plant-cream/50">
@@ -255,8 +175,97 @@ export default function PlantDetail() {
           </Link>
         </div>
         
-        <div className="flex flex-col gap-6">
-          {renderPlantDetails()}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Plant Image */}
+          <Card className="md:order-1">
+            <CardContent className="p-0">
+              <AspectRatio ratio={16 / 9}>
+                <img
+                  src={plant.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop'}
+                  alt={plant.name}
+                  className="object-cover rounded-md w-full h-full"
+                />
+              </AspectRatio>
+            </CardContent>
+          </Card>
+
+          {/* Plant Details */}
+          <Card className="md:order-2">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl font-bold">{plant.name}</CardTitle>
+                {user && (
+                  <Button variant="ghost" size="icon" onClick={handleToggleFavorite}>
+                    {isFavorited ? <Heart className="h-5 w-5 text-red-500 fill-current" /> : <Heart className="h-5 w-5" />}
+                  </Button>
+                )}
+              </div>
+              <CardDescription>{plant.species}</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid gap-2">
+                <h3 className="text-lg font-medium">Owner</h3>
+                <Link to={`/profile/${plant.profiles?.username || ''}`} className="hover:opacity-80">
+                  <div className="flex items-center space-x-4">
+                    <Avatar>
+                      <AvatarImage src={plant.profiles?.avatar_url || undefined} />
+                      <AvatarFallback>{plant.profiles?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{plant.profiles?.username || 'Unknown'}</p>
+                      <p className="text-sm text-plant-gray">{plant.profiles?.location || 'Location not specified'}</p>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-2">
+                <h3 className="text-lg font-medium">Details</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-plant-gray">Difficulty:</p>
+                    <Badge variant="secondary">{plant.difficulty || 'Not specified'}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-plant-gray">Sunlight:</p>
+                    <Badge variant="secondary">{plant.sunlight || 'Not specified'}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-plant-gray">Watering:</p>
+                    <Badge variant="secondary">{plant.watering_frequency || 'Not specified'}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-plant-gray">Size:</p>
+                    <Badge variant="secondary">{plant.size || 'Not specified'}</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-2">
+                <h3 className="text-lg font-medium">Description</h3>
+                <p className="text-plant-gray">{plant.description || 'No description provided.'}</p>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-2">
+                <h3 className="text-lg font-medium">Care Instructions</h3>
+                <ScrollArea className="h-32">
+                  <p className="text-plant-gray">{plant.care_instructions || 'No care instructions provided.'}</p>
+                </ScrollArea>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-2">
+                {renderActionButton()}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
       
