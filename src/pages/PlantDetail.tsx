@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogIn, Edit, RefreshCw, Loader2, Heart, HeartOff } from "lucide-react";
+import { LogIn, Edit, RefreshCw, Loader2, Heart } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -166,9 +166,11 @@ export default function PlantDetail() {
     );
   }
 
-  const ownerName = plant.profiles?.username || plant.owner?.username || 'Unknown';
-  const ownerLocation = plant.profiles?.location || plant.owner?.location || 'Location not specified';
-  const ownerAvatar = plant.profiles?.avatar_url || plant.owner?.avatar_url;
+  // Extract owner information from the plant object
+  // Use nullish coalescing operator to handle potential undefined values
+  const ownerName = plant.owner?.username || 'Unknown';
+  const ownerLocation = plant.owner?.location || 'Location not specified';
+  const ownerAvatar = plant.owner?.avatar_url;
   const ownerId = plant.owner_id;
 
   return (
@@ -217,8 +219,8 @@ export default function PlantDetail() {
                 <Link to={`/profile/${ownerName}`} className="hover:opacity-80">
                   <div className="flex items-center space-x-4">
                     <Avatar>
-                      <AvatarImage src={ownerAvatar} />
-                      <AvatarFallback>{ownerName.charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarImage src={ownerAvatar || ''} />
+                      <AvatarFallback>{ownerName ? ownerName.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="font-medium">{ownerName}</p>
