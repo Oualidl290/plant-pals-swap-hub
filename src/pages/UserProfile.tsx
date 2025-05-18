@@ -61,14 +61,17 @@ export default function UserProfile() {
         if (username === 'me' && user) {
           // Load current user's profile
           profileData = await getProfile(user.id);
+          console.log("Fetched current user profile:", profileData);
         } else if (username) {
           // Load profile by username
           profileData = await getProfile(username);
+          console.log("Fetched profile by username:", profileData);
         } else {
           throw new Error("No username or user ID provided");
         }
         
         if (!profileData) {
+          console.error("Profile data is null after fetch");
           throw new Error("Profile not found");
         }
         

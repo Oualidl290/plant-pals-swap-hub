@@ -21,31 +21,51 @@ export function useProfile() {
   const { user, updateProfile: updateAuthProfile } = useAuth();
 
   // Get profile by username or ID with improved error handling
-  const getProfile = async (usernameOrId: string) => {
-    if (!usernameOrId) {
-      throw new Error('Username or ID is required');
-    }
-    
-    // Check if we're searching by ID or username
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(usernameOrId);
-    
-    try {
-      const query = supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+  const getProfileQuery = useQuery({
+    queryKey: ['profile-by-username-id'],
+    queryFn: async ({ queryKey, meta }: any) => {
+      const usernameOrId = meta?.usernameOrId;
+      if (!usernameOrId) {
+        throw new Error('Username or ID is required');
+      }
+      
+      // Check if we're searching by ID or username
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(usernameOrId);
+      
+      try {
+        const query = supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        const { data, error } = await (isUuid 
+          ? query.eq('id', usernameOrId).maybeSingle()
+          : query.eq('username', usernameOrId).maybeSingle());
         
-      const { data, error } = await (isUuid 
-        ? query.eq('id', usernameOrId).maybeSingle()
-        : query.eq('username', usernameOrId).maybeSingle());
-      
-      if (error) throw error;
-      if (!data) throw new Error(`Profile not found for ${usernameOrId}`);
-      
-      return data as ProfileWithDetails;
+        if (error) throw error;
+        if (!data) throw new Error(`Profile not found for ${usernameOrId}`);
+        
+        return data as ProfileWithDetails;
+      } catch (error: any) {
+        console.error('Error fetching profile:', error);
+        throw new Error(error.message || 'Failed to load profile');
+      }
+    },
+    enabled: false // This query will be manually triggered
+  });
+
+  // Get profile by username or ID (manual trigger function)
+  const getProfile = async (usernameOrId: string) => {
+    try {
+      const result = await queryClient.fetchQuery({
+        queryKey: ['profile-by-username-id'],
+        queryFn: getProfileQuery.queryFn,
+        meta: { usernameOrId }
+      });
+      return result as ProfileWithDetails;
     } catch (error: any) {
-      console.error('Error fetching profile:', error);
-      throw new Error(error.message || 'Failed to load profile');
+      console.error('Error in getProfile:', error);
+      throw error;
     }
   };
 
@@ -53,17 +73,26 @@ export function useProfile() {
   const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
-      if (!user) return null;
+      if (!user?.id) {
+        console.log('No user found, cannot fetch profile');
+        return null;
+      }
       
       try {
+        console.log('Fetching profile for user ID:', user.id);
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase error fetching profile:', error);
+          throw error;
+        }
+        
         if (!data) {
+          console.log('No profile found, creating a new one');
           // If profile doesn't exist, create it
           const newProfile = {
             id: user.id,
@@ -77,31 +106,60 @@ export function useProfile() {
             .select()
             .single();
             
-          if (createError) throw createError;
+          if (createError) {
+            console.error('Error creating profile:', createError);
+            throw createError;
+          }
+          
+          console.log('Created new profile:', createdProfile);
           return createdProfile as ProfileWithDetails;
         }
         
+        console.log('Retrieved existing profile:', data);
         return data as ProfileWithDetails;
       } catch (error: any) {
         console.error('Error fetching user profile:', error);
         throw new Error(error.message || 'Failed to load user profile');
       }
     },
-    retry: 2,
-    enabled: !!user
+    retry: 1,
+    enabled: !!user?.id,
+    staleTime: 60000 // Cache profile data for 1 minute
   });
 
-  // Get reviews for a user
+  // Get reviews for a user - converted to use useQuery
+  const getReviewsQuery = useQuery({
+    queryKey: ['reviews-by-user-id'],
+    queryFn: async ({ queryKey, meta }: any) => {
+      const userId = meta?.userId;
+      if (!userId) throw new Error('User ID is required');
+      
+      try {
+        // Use RPC call instead of direct table access
+        const { data, error } = await supabase.rpc('get_user_reviews', { p_user_id: userId });
+          
+        if (error) throw error;
+        return data || [];
+      } catch (error: any) {
+        console.error('Error fetching reviews:', error);
+        throw new Error(error.message || 'Failed to load reviews');
+      }
+    },
+    enabled: false // This query will be manually triggered
+  });
+
+  // Get reviews for a user (manual trigger function)
   const getReviews = async (userId: string): Promise<Review[]> => {
     try {
-      // Use RPC call instead of direct table access
-      const { data, error } = await supabase.rpc('get_user_reviews', { p_user_id: userId });
-        
-      if (error) throw error;
-      return data || [];
+      const result = await queryClient.fetchQuery({
+        queryKey: ['reviews-by-user-id'],
+        queryFn: getReviewsQuery.queryFn,
+        meta: { userId }
+      });
+      return result as Review[];
     } catch (error: any) {
-      console.error('Error fetching reviews:', error);
-      throw new Error(error.message || 'Failed to load reviews');
+      console.error('Error in getReviews:', error);
+      throw error;
     }
   };
 
