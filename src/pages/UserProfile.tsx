@@ -22,9 +22,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { usePlants } from "@/hooks/usePlants";
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
-import { LoadingScreen } from "@/components/auth/LoadingScreen";
 import { ProfileWithDetails, Review } from "@/types/supabase";
-import { Separator } from "@/components/ui/separator";
 import { PlantCard } from "@/components/PlantCard";
 
 export default function UserProfile() {
@@ -33,14 +31,14 @@ export default function UserProfile() {
   const { toast } = useToast();
   const navigate = useNavigate();
   
-  const { getProfile, getReviews } = useProfile();
-  const { userPlants, isLoadingUserPlants } = usePlants();
-  
   const [profile, setProfile] = useState<ProfileWithDetails | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { getProfile, getReviews } = useProfile();
+  const { userPlants, isLoadingUserPlants } = usePlants();
   
   // Check if viewing own profile
   const isOwnProfile = user && profile && (user.id === profile.id || username === 'me');
@@ -77,8 +75,9 @@ export default function UserProfile() {
         setProfile(profileData);
         
         // Load reviews separately to avoid blocking the UI
-        loadReviews(profileData.id);
-        
+        if (profileData.id) {
+          loadReviews(profileData.id);
+        }
       } catch (error: any) {
         console.error('Failed to load profile:', error);
         setError(error.message || "Could not load user profile");
@@ -227,7 +226,7 @@ export default function UserProfile() {
           </TabsList>
           
           <TabsContent value="plants">
-            <PlantsTabContent 
+            <PlantTabContent 
               plants={userPlantsFiltered} 
               isLoading={isLoadingUserPlants} 
               isOwnProfile={isOwnProfile} 
@@ -236,13 +235,35 @@ export default function UserProfile() {
           </TabsContent>
           
           <TabsContent value="reviews">
-            <ReviewsTabContent 
+            <ReviewTabContent 
               reviews={reviews} 
               isLoading={loadingReviews} 
             />
           </TabsContent>
         </Tabs>
       </main>
+    </div>
+  );
+}
+
+// Loading Screen Component
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-plant-cream/50">
+      <div className="flex flex-col items-center space-y-4">
+        <div className="relative">
+          <div className="h-20 w-20 rounded-full bg-plant-mint/30 flex items-center justify-center">
+            <Leaf className="h-12 w-12 text-plant-dark-green animate-pulse" />
+          </div>
+          <div className="absolute -bottom-2 left-0 right-0">
+            <div className="h-1 w-full bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-plant-dark-green animate-[garden-grow_1.5s_ease-in-out_infinite]" style={{ width: '100%' }}></div>
+            </div>
+          </div>
+        </div>
+        <p className="text-lg font-serif text-plant-dark-green">Getting your garden ready...</p>
+        <p className="text-sm text-plant-dark/70">Loading your personalized plant experience</p>
+      </div>
     </div>
   );
 }
@@ -324,7 +345,7 @@ function ProfileNotFound() {
 }
 
 // Component for plants tab content
-function PlantsTabContent({ 
+function PlantTabContent({ 
   plants, 
   isLoading, 
   isOwnProfile, 
@@ -388,7 +409,7 @@ function PlantsTabContent({
 }
 
 // Component for reviews tab content
-function ReviewsTabContent({ reviews, isLoading }: { reviews: Review[]; isLoading: boolean }) {
+function ReviewTabContent({ reviews, isLoading }: { reviews: Review[]; isLoading: boolean }) {
   if (isLoading) {
     return (
       <div className="text-center py-12">
