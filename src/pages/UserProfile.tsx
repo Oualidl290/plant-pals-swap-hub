@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
@@ -40,14 +39,14 @@ export default function UserProfile() {
   const { getProfile, getReviews } = useProfile();
   const { userPlants, isLoadingUserPlants } = usePlants();
   
-  // Check if viewing own profile
-  const isOwnProfile = user && profile && (user.id === profile.id || username === 'me');
+  // Always viewing own profile now
+  const isOwnProfile = true;
   
-  // Fetch profile data
+  // Fetch profile data - only for current user
   useEffect(() => {
     async function loadProfile() {
-      if (!username && !user) {
-        setError("No username provided");
+      if (!user) {
+        setError("You must be logged in to view your profile");
         setIsLoading(false);
         return;
       }
@@ -56,19 +55,9 @@ export default function UserProfile() {
       setError(null);
       
       try {
-        let profileData;
-        
-        if (username === 'me' && user) {
-          // Load current user's profile
-          profileData = await getProfile(user.id);
-          console.log("Fetched current user profile:", profileData);
-        } else if (username) {
-          // Load profile by username
-          profileData = await getProfile(username);
-          console.log("Fetched profile by username:", profileData);
-        } else {
-          throw new Error("No username or user ID provided");
-        }
+        // Load current user's profile
+        const profileData = await getProfile(user.id);
+        console.log("Fetched current user profile:", profileData);
         
         if (!profileData) {
           console.error("Profile data is null after fetch");
@@ -95,7 +84,7 @@ export default function UserProfile() {
     }
     
     loadProfile();
-  }, [username, user, getProfile, toast]);
+  }, [user, getProfile, toast]);
   
   // Load reviews in a separate function to improve component readability
   const loadReviews = async (userId: string) => {
@@ -117,7 +106,7 @@ export default function UserProfile() {
     : [];
 
   // Render states
-  if (!user && username === 'me') {
+  if (!user) {
     return <LoadingScreen />;
   }
 

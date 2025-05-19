@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -109,8 +108,15 @@ function App() {
                 <Route path="/plants" element={<Plants />} />
                 <Route path="/plant/:id" element={<PlantDetail />} />
                 
-                <Route path="/profile/:username" element={<UserProfile />} />
-                <Route path="/profile" element={<UserProfile />} />
+                {/* Removed the /profile/:username route, keeping only /profile */}
+                <Route 
+                  path="/profile" 
+                  element={
+                    <ProtectedRoute>
+                      <UserProfile />
+                    </ProtectedRoute>
+                  } 
+                />
                 
                 <Route 
                   path="/messages" 
