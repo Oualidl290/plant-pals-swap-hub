@@ -20,36 +20,41 @@ export function useProfile() {
   const queryClient = useQueryClient();
   const { user, updateProfile: updateAuthProfile } = useAuth();
 
+  // Profile query function - define outside the query for reuse
+  const fetchProfileByUsernameOrId = async (usernameOrId: string) => {
+    if (!usernameOrId) {
+      throw new Error('Username or ID is required');
+    }
+    
+    // Check if we're searching by ID or username
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(usernameOrId);
+    
+    try {
+      const query = supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      const { data, error } = await (isUuid 
+        ? query.eq('id', usernameOrId).maybeSingle()
+        : query.eq('username', usernameOrId).maybeSingle());
+      
+      if (error) throw error;
+      if (!data) throw new Error(`Profile not found for ${usernameOrId}`);
+      
+      return data as ProfileWithDetails;
+    } catch (error: any) {
+      console.error('Error fetching profile:', error);
+      throw new Error(error.message || 'Failed to load profile');
+    }
+  };
+
   // Get profile by username or ID with improved error handling
   const getProfileQuery = useQuery({
     queryKey: ['profile-by-username-id'],
-    queryFn: async ({ queryKey, meta }: any) => {
+    queryFn: async ({ meta }: any) => {
       const usernameOrId = meta?.usernameOrId;
-      if (!usernameOrId) {
-        throw new Error('Username or ID is required');
-      }
-      
-      // Check if we're searching by ID or username
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(usernameOrId);
-      
-      try {
-        const query = supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        const { data, error } = await (isUuid 
-          ? query.eq('id', usernameOrId).maybeSingle()
-          : query.eq('username', usernameOrId).maybeSingle());
-        
-        if (error) throw error;
-        if (!data) throw new Error(`Profile not found for ${usernameOrId}`);
-        
-        return data as ProfileWithDetails;
-      } catch (error: any) {
-        console.error('Error fetching profile:', error);
-        throw new Error(error.message || 'Failed to load profile');
-      }
+      return fetchProfileByUsernameOrId(usernameOrId);
     },
     enabled: false // This query will be manually triggered
   });
@@ -59,7 +64,8 @@ export function useProfile() {
     try {
       const result = await queryClient.fetchQuery({
         queryKey: ['profile-by-username-id'],
-        queryFn: getProfileQuery.queryFn,
+        // Use the same fetch function but pass parameters properly
+        queryFn: async () => fetchProfileByUsernameOrId(usernameOrId),
         meta: { usernameOrId }
       });
       return result as ProfileWithDetails;
@@ -127,23 +133,28 @@ export function useProfile() {
     staleTime: 60000 // Cache profile data for 1 minute
   });
 
+  // Reviews fetch function - define outside to avoid duplication
+  const fetchReviewsByUserId = async (userId: string): Promise<Review[]> => {
+    if (!userId) throw new Error('User ID is required');
+    
+    try {
+      // Use RPC call instead of direct table access
+      const { data, error } = await supabase.rpc('get_user_reviews', { p_user_id: userId });
+        
+      if (error) throw error;
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching reviews:', error);
+      throw new Error(error.message || 'Failed to load reviews');
+    }
+  };
+
   // Get reviews for a user - converted to use useQuery
   const getReviewsQuery = useQuery({
     queryKey: ['reviews-by-user-id'],
-    queryFn: async ({ queryKey, meta }: any) => {
+    queryFn: async ({ meta }: any) => {
       const userId = meta?.userId;
-      if (!userId) throw new Error('User ID is required');
-      
-      try {
-        // Use RPC call instead of direct table access
-        const { data, error } = await supabase.rpc('get_user_reviews', { p_user_id: userId });
-          
-        if (error) throw error;
-        return data || [];
-      } catch (error: any) {
-        console.error('Error fetching reviews:', error);
-        throw new Error(error.message || 'Failed to load reviews');
-      }
+      return fetchReviewsByUserId(userId);
     },
     enabled: false // This query will be manually triggered
   });
@@ -153,7 +164,8 @@ export function useProfile() {
     try {
       const result = await queryClient.fetchQuery({
         queryKey: ['reviews-by-user-id'],
-        queryFn: getReviewsQuery.queryFn,
+        // Use the same fetch function but pass parameters properly
+        queryFn: async () => fetchReviewsByUserId(userId),
         meta: { userId }
       });
       return result as Review[];
