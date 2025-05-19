@@ -110,7 +110,7 @@ function App() {
                 <Route path="/plant/:id" element={<PlantDetail />} />
                 
                 <Route path="/profile/:username" element={<UserProfile />} />
-                <Route path="/profile" element={<Navigate to="/profile/me" replace />} />
+                <Route path="/profile" element={<UserProfile />} />
                 
                 <Route 
                   path="/messages" 
