@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,10 +16,10 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Plants = lazy(() => import("./pages/Plants"));
-const PlantDetail = lazy(() => import("./pages/PlantDetail"));
+const ViewPlant = lazy(() => import("./pages/ViewPlant"));
 const UserProfile = lazy(() => import("./pages/UserProfile"));
 const Messages = lazy(() => import("./pages/Messages"));
-const AddPlant = lazy(() => import("./pages/AddPlant"));
+const CreatePlant = lazy(() => import("./pages/CreatePlant"));
 const SwapsPage = lazy(() => import("./pages/SwapsPage"));
 
 function App() {
@@ -88,10 +89,10 @@ function App() {
                 />
                 
                 <Route 
-                  path="/add-plant" 
+                  path="/create-plant" 
                   element={
                     <ProtectedRoute>
-                      <AddPlant />
+                      <CreatePlant />
                     </ProtectedRoute>
                   } 
                 />
@@ -100,15 +101,14 @@ function App() {
                   path="/edit-plant/:id" 
                   element={
                     <ProtectedRoute>
-                      <AddPlant />
+                      <CreatePlant />
                     </ProtectedRoute>
                   } 
                 />
                 
                 <Route path="/plants" element={<Plants />} />
-                <Route path="/plant/:id" element={<PlantDetail />} />
+                <Route path="/plant/:id" element={<ViewPlant />} />
                 
-                {/* Removed the /profile/:username route, keeping only /profile */}
                 <Route 
                   path="/profile" 
                   element={

@@ -1,10 +1,10 @@
 
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { LogIn, Edit, RefreshCw, Loader2, Heart } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { LogIn, Edit, RefreshCw, Loader2, Heart, ArrowLeft } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,11 +14,13 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SwapRequestModal } from "@/components/SwapRequestModal";
 import { useToast } from "@/hooks/use-toast";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 
-export default function PlantDetail() {
+export default function ViewPlant() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { getPlant, toggleFavorite, checkFavoriteStatus } = usePlants();
   
   const [plant, setPlant] = useState(null);
@@ -167,36 +169,57 @@ export default function PlantDetail() {
   const ownerLocation = plant.owner?.location || 'Location not specified';
   const ownerAvatar = plant.owner?.avatar_url;
   const ownerId = plant.owner_id;
+  
+  // Get image URLs from plant object
+  const imageUrls = plant.image_urls?.length ? plant.image_urls : 
+                   (plant.image_url ? [plant.image_url] : ['https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop']);
 
   return (
     <div className="min-h-screen bg-plant-cream/50">
       <Navbar />
       
       <main className="container mx-auto px-4 py-6 md:py-10">
-        <div className="mb-6">
-          <Link to="/plants" className="text-plant-dark-green hover:underline flex items-center">
-            <Button variant="link" className="pl-0">
-              ← Back to Plants
-            </Button>
-          </Link>
+        <div className="mb-6 flex items-center">
+          <Button 
+            variant="ghost" 
+            className="flex items-center text-plant-dark-green hover:text-plant-dark-green/90 p-0 mr-2"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+          </Button>
+          <h1 className="text-2xl font-serif font-semibold text-plant-dark-green ml-2">Plant Details</h1>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Plant Image */}
-          <Card className="md:order-1">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          {/* Plant Images */}
+          <Card className="col-span-full md:col-span-7 border-plant-mint/30 overflow-hidden">
             <CardContent className="p-0">
-              <AspectRatio ratio={16 / 9}>
-                <img
-                  src={plant.image_url || 'https://images.unsplash.com/photo-1637967886160-fd761519fb90?q=80&w=3540&auto=format&fit=crop'}
-                  alt={plant.name}
-                  className="object-cover rounded-md w-full h-full"
-                />
-              </AspectRatio>
+              <Carousel className="w-full">
+                <CarouselContent>
+                  {imageUrls.map((url, index) => (
+                    <CarouselItem key={index}>
+                      <AspectRatio ratio={4/3}>
+                        <img
+                          src={url}
+                          alt={`${plant.name} - image ${index + 1}`}
+                          className="object-cover rounded-md w-full h-full"
+                        />
+                      </AspectRatio>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {imageUrls.length > 1 && (
+                  <>
+                    <CarouselPrevious className="left-2" />
+                    <CarouselNext className="right-2" />
+                  </>
+                )}
+              </Carousel>
             </CardContent>
           </Card>
 
           {/* Plant Details */}
-          <Card className="md:order-2">
+          <Card className="col-span-full md:col-span-5 border-plant-mint/30">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-2xl font-bold">{plant.name}</CardTitle>
@@ -211,7 +234,7 @@ export default function PlantDetail() {
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
                 <h3 className="text-lg font-medium">Owner</h3>
-                <Link to={`/profile/${ownerName}`} className="hover:opacity-80">
+                <Link to={`/profile`} className="hover:opacity-80">
                   <div className="flex items-center space-x-4">
                     <Avatar>
                       <AvatarImage src={ownerAvatar || ''} />
